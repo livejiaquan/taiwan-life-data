@@ -1,0 +1,81 @@
+# 進度（PROGRESS）
+
+## 需要使用者
+
+| # | 要做的事 | 為什麼 | 怎麼做 | 目前替代方案 |
+|---|---|---|---|---|
+| 1 | **給 gh token 加 `workflow` 權限，推上 workflow commit** | 現有 OAuth token 只有 `gist, read:org, repo`，GitHub 拒絕推送 `.github/workflows/*`（`refusing to allow an OAuth App to create or update workflow … without workflow scope`）。沒有 workflow 就沒有 CI、也沒有排程收集。 | 在本 repo 執行：`gh auth refresh -h github.com -s workflow`（瀏覽器授權）→ `git push`（推上本機已備好的 commit「Add CI and collect-and-deploy workflows」）→ `gh api -X PUT repos/livejiaquan/taiwan-life-data/pages -f build_type=workflow`（Pages 改由 workflow 部署） | 本機建置後推到 `gh-pages` 分支，Pages 以 legacy 方式從該分支提供。CWA 三個 feed 由瀏覽器直接讀官方檔，不受影響；AQI 快照不會自動更新，過 80 分鐘顯示「延遲」、3 小時後顯示「過舊」且不下結論。 |
+| 2 | 設定 GitHub secret `MOENV_API_KEY` | PLAN 指定 AQI 走自己的金鑰 | 到 https://data.moenv.gov.tw/ 申請 API key → `gh secret set MOENV_API_KEY -R livejiaquan/taiwan-life-data` | collector 改用環境部刊登在 data.gov.tw 的公開下載連結（執行時解析，不入庫、不進瀏覽器），見 DECISIONS D3 |
+| 3 | `npx wrangler login`（Cloudflare 帳號） | AQI 要達到 p95 ≤ 30 分，需要準時排程；Actions 實測間隔中位數 2–5 小時（DECISIONS D2） | 執行 `npx wrangler login`，完成後告訴下一階段 session，由它建立 Workers Cron | 見 #1 的替代方案 |
+
+## 階段 1 基礎 — 狀態：完成（CI 綠燈待使用者 #1）
+
+### 做了什麼
+- **Monorepo**（npm workspaces）：`packages/contract`、`packages/collectors`、`apps/web`；ESLint（flat config＋typescript-eslint）、`tsc --noEmit`、Vitest。
+- **資料契約** `packages/contract`：`FeedEnvelope { sourceTime, retrievedAt, status: live|delayed|stale|unavailable, via, source{agency,title,datasetId,url,license}, issues, data }`；每 feed 新鮮度政策；`computeStatus`／`currentStatus`（fail-closed，顯示時依現在重算）；`parseEnvelope` 結構驗證＋金鑰字樣攔截；`parseOfficialTime` 處理官方各種時間格式（含 `+8:00`、`2026/10/16 00:00:00`）。
+- **Collectors**（搬入舊 repo 已測過的邏輯，並各有離線 fixture 測試）：
+  - 警特報 W-C0033-001：沿用 weather-risk 站的嚴格驗證（22 縣市＋geocode 必須完全吻合，缺縣市不得當作「無警報」），過期 hazard 在顯示時過濾。
+  - UV／氣溫 O-A0003-001：沿用 UV 站的解析與 -99 哨兵值處理。
+  - **熱傷害 M-A0085-001（data.gov.tw 143330）**：新接，368 鄉鎮全量驗證，快照只留未來 48 小時。
+  - AQI AQX_P_432：沿用 AQI 站的驗證門檻（≥80 站、22 縣市、有效比 ≥0.95、siteid 唯一、未來時間容忍 15 分）；取得金鑰網址的程式只在 `src/server.ts`。
+- **新鮮度方案實測與決定**：見 `docs/DECISIONS.md` D2（CORS／延遲表、Actions cron 實際間隔表、決定與理由）。
+- **公開建置防金鑰**：沿用 `assertPublicBuildEnv`＋輸出掃描（`scripts/build-public.ts`），第一次建置即攔下前端帶到 AQI 網址程式的問題並修正（D6）。
+- **最小可用頁**：選縣市 → 警特報 → 熱傷害 → 紫外線 → 空品（降雨標示建置中），每項顯示狀態、官方資料時間、取得時間、取得方式（快照／直接讀官方檔）與資料集連結；`?county=` 可分享。
+- **CI／部署 workflow**：`.github/workflows/ci.yml`（lint、typecheck、test、build:public）、`pages.yml`（collect → build:public → Pages）已寫好並 commit 在本機，待使用者 #1 推上。
+- **GitHub repo**：https://github.com/livejiaquan/taiwan-life-data（public，MIT）。
+
+### 驗收證據
+
+| 驗收項 | 結果 | 證據 |
+|---|---|---|
+| 測試全過 | ✅ | 下方「本機檢查」輸出：4 檔 34 測試全過 |
+| CI 綠 | ⏳ **未達成**，卡在使用者 #1 | 本機以 CI 相同指令跑過全綠；GitHub 上尚無 workflow，無法跑 |
+| 線上網址 HTTP 200 | ✅ | `curl` → `index 200 997B`；`data/index.json 200`；headless Chrome 實際渲染（下方） |
+| DECISIONS 有各端點 CORS／延遲實測數據 | ✅ | `docs/DECISIONS.md` D2 兩張表 |
+
+本機檢查（2026-10-16 00:29 +08）：
+```
+$ npm run lint        → eslint .（無輸出＝無錯誤）
+$ npm run typecheck   → tsc --noEmit -p tsconfig.json（無錯誤）
+$ npm test
+ Test Files  4 passed (4)
+      Tests  34 passed (34)
+$ npm run collect
+warnings live        source=2026-10-15T08:26:24.000Z bytes=1819
+uv       live        source=2026-10-15T16:20:00.000Z bytes=51318
+heat     live        source=2026-10-15T14:00:54.000Z bytes=388246
+aqi      live        source=2026-10-15T16:00:00.000Z bytes=13636 issues=使用 data.gov.tw 公開下載連結（尚未設定 MOENV_API_KEY）
+$ npm run build:public
+dist/assets/index-BMgHl8eQ.js   240.21 kB │ gzip: 76.57 kB
+Public artifacts checked (8 files): no credential markers or key-requiring API URLs.
+```
+
+線上（2026-10-16 00:34 +08）：
+```
+$ curl -s -o /dev/null -w 'index %{http_code} %{size_download}B\n' https://livejiaquan.github.io/taiwan-life-data/
+index 200 997B
+$ headless Chrome --dump-dom '…/taiwan-life-data/?county=臺南市'（節錄）
+天氣警特報 即時 目前沒有生效中的天氣警特報 資料時間 10/15 16:26・取得 10/16 00:33（快照）
+熱傷害指數 即時 現在沒有熱傷害警示 37 個鄉鎮市區的官方熱傷害預報（逐 3 小時）
+紫外線與氣溫觀測 即時 紫外線 0（低量級） 臺南測站 10/16 00:20 觀測
+空氣品質指標 即時 AQI 最高 74（普通） 林森測站 … 本縣市 5 個測站
+```
+
+瀏覽器直接讀官方檔（方案 a）線上實證（2026-10-16 00:50 +08，快照取得已超過 15 分）：
+```
+天氣警特報 即時 目前沒有生效中的天氣警特報 資料時間 10/15 16:26・取得 10/16 00:50（直接讀官方檔案）
+```
+同一次渲染發現 UV 快照 30 分鐘舊仍判為 live（門檻 40 分）→ 已下修為 25 分（DECISIONS D5）。
+
+獨立複核：
+- **Fresh clone**（從 GitHub 重新 clone main 到暫存目錄）：`npm ci` → lint、typecheck 無錯；`Test Files 4 passed (4) / Tests 34 passed (34)`；`build:public` 通過。
+- **gh-pages 全檔掃描**：金鑰樣式（`api_key=`／`Authorization=` 後接值、CWA 金鑰 UUID、`data.moenv.gov.tw/api`、`opendata.cwa.gov.tw/api`）命中 **0**。
+- **Codex 獨立實測**（不同 Origin `https://example.org`）：W-C0033-001／O-A0003-001／M-A0085-001 皆 HTTP 200、`ACAO: *`，大小 3391／669342／2902926 bytes，與 DECISIONS 一致；MOENV 無金鑰回 HTTP 200 但內文為「api_key 不存在。」；線上首頁與 `data/index.json` 皆 200。（Codex 因環境無法建暫存目錄，fresh clone 與掃描改由主 session 執行，即上兩項。）
+
+### 未完成／已知限制
+- CI 與排程收集待使用者 #1；AQI 新鮮度目標待使用者 #3（DECISIONS D2）。
+- 資料年齡 p95 目前是依官方發布落差推估，尚未連續量測（第 2 階段 `/status` 累積）。
+- 快照不新時瀏覽器會讀 669 KB／2.9 MB 的官方檔（DECISIONS D7），第 2 階段處理。
+
+### 下一步（階段 2）
+- 鄉鎮級 368 選擇（熱傷害資料已是鄉鎮全量）、降雨（鄉鎮預報 F-D0047-0xx）、`/status` 頁、LINE 分享、手機版效能量測。

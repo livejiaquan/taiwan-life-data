@@ -66,7 +66,7 @@ export const FEEDS: Record<FeedId, FeedDefinition> = {
       url: "https://data.gov.tw/dataset/9178",
       license: CWA_LICENSE,
     },
-    freshness: { basis: "sourceTime", liveForMinutes: 40, delayedForMinutes: 120, cadence: "每 10 分鐘（紫外線每小時）" },
+    freshness: { basis: "sourceTime", liveForMinutes: 25, delayedForMinutes: 120, cadence: "每 10 分鐘（紫外線每小時）" },
   },
   heat: {
     id: "heat",

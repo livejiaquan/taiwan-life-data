@@ -73,7 +73,7 @@
 | Feed | 依據 | live ≤ | delayed ≤ | 之後 | 理由 |
 |---|---|---|---|---|---|
 | warnings | retrievedAt | 15 分 | 60 分 | stale | 事件型檔案，判斷依據是「最近有沒有成功讀到」 |
-| uv | sourceTime（最新觀測時間） | 40 分 | 120 分 | stale | 每 10 分＋發布落差約 10 分 |
+| uv | sourceTime（最新觀測時間） | 25 分 | 120 分 | stale | 每 10 分＋發布落差約 10 分＝最壞約 20 分；live 窗不得超過 30 分目標，否則前端會沿用舊快照不去更新（原設 40 分，線上實測時 30 分鐘舊的 UV 仍被當 live，故下修） |
 | heat | sourceTime（發布時間） | 7 小時 | 13 小時 | stale | 每 6 小時一報 |
 | aqi | sourceTime（publishtime） | 80 分 | 180 分 | stale | 每小時＋約 20 分發布落差 |
 
