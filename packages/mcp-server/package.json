@@ -1,0 +1,25 @@
+{
+  "name": "taiwan-life-data-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for 台灣生活資料誌: township-level outdoor brief (warnings, heat, UV, AQI, rain), grid carbon intensity, reservoirs and data freshness from Taiwan's official open data. No API key needed.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "taiwan-life-data-mcp": "dist/index.js" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "repository": { "type": "git", "url": "git+https://github.com/livejiaquan/taiwan-life-data.git", "directory": "packages/mcp-server" },
+  "homepage": "https://github.com/livejiaquan/taiwan-life-data/tree/main/packages/mcp-server#readme",
+  "bugs": "https://github.com/livejiaquan/taiwan-life-data/issues",
+  "keywords": ["mcp", "model-context-protocol", "taiwan", "open-data", "weather", "air-quality", "aqi", "uv", "heat", "carbon-intensity", "reservoir", "台灣", "開放資料"],
+  "scripts": {
+    "build": "node build.mjs",
+    "prepack": "node build.mjs"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@taiwan-life-data/assess": "0.1.0",
+    "@taiwan-life-data/collectors": "0.1.0",
+    "@taiwan-life-data/contract": "0.1.0",
+    "zod": "^3.25.76"
+  }
+}

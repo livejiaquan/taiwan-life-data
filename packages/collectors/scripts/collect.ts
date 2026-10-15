@@ -9,7 +9,7 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { currentStatus, dataAgeMinutes, FEEDS, isStatusDoc, updateStatus, type FeedEnvelope, type FeedId, type RunResult, type StatusDoc } from "@taiwan-life-data/contract";
+import { currentStatus, dataAgeMinutes, FEEDS, incidentsAtom, isStatusDoc, updateStatus, type FeedEnvelope, type FeedId, type RunResult, type StatusDoc } from "@taiwan-life-data/contract";
 import { BROWSER_FETCHABLE, createJsonFetcher, parseFeedEnvelope } from "../src/index";
 import { collectAny } from "../src/server";
 
@@ -69,6 +69,7 @@ const main = async () => {
   const statusJson = JSON.stringify(doc);
   if (apiKey && statusJson.includes(apiKey)) throw new Error("公開狀態檔安全檢查未通過");
   await writeAtomic(join(OUT_DIR, "status.json"), statusJson);
+  await writeAtomic(join(OUT_DIR, "incidents.xml"), incidentsAtom(doc, SITE));
   await writeAtomic(
     join(OUT_DIR, "index.json"),
     JSON.stringify({ schemaVersion: 1, generatedAt: doc.generatedAt, feeds: results.map(({ feed, status, sourceTime, ageMinutes }) => ({ feed, status, sourceTime, ageMinutes })) }),
@@ -90,7 +91,7 @@ const main = async () => {
         freshness: FEEDS[feed].freshness,
         browserReadable: BROWSER_FETCHABLE.includes(feed),
       })),
-      extras: { index: "data/index.json", status: "data/status.json", powerProfile: "data/power-profile.json", archiveIndex: "archive/v1/index.json" },
+      extras: { index: "data/index.json", status: "data/status.json", incidentsAtom: "data/incidents.xml", incidentLog: "archive/v1/incidents.json", powerProfile: "data/power-profile.json", archiveIndex: "archive/v1/index.json" },
     }),
   );
   console.log(`status: ${doc.runs.length} runs, ${doc.incidents.filter((i) => !i.endedAt).length} open incidents`);

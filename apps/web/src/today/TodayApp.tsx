@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { isPowerProfile, type FeedDataMap, type PowerProfile } from "@taiwan-life-data/collectors";
 import { dataAgeMinutes, FEEDS, formatTaipei, type FeedEnvelope, type FeedStatus } from "@taiwan-life-data/contract";
-import { loadSnapshot, pickBest, readOfficial } from "../load";
-import { assessPower, CATEGORY_LABEL, REGION_LABEL, usableProfile, reservoirRows, reservoirTone, windowText } from "./today";
+import { assessPower, CATEGORY_LABEL, pickBest, REGION_LABEL, usableProfile, reservoirRows, reservoirTone, windowText } from "@taiwan-life-data/assess";
+import { loadSnapshot, readOfficial } from "../load";
 
 const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
 const REPO = "https://github.com/livejiaquan/taiwan-life-data/blob/main";

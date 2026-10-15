@@ -1,7 +1,7 @@
 import type { FeedDataMap, HourWindow, PowerProfile, Reservoir, ReservoirRegion } from "@taiwan-life-data/collectors";
 import { RESERVOIR_MAX_AGE_HOURS } from "@taiwan-life-data/collectors";
 import { FEEDS } from "@taiwan-life-data/contract";
-import type { Tone } from "../assess";
+import type { Tone } from "./assess";
 
 export const CATEGORY_LABEL: Record<string, string> = {
   gas: "燃氣",

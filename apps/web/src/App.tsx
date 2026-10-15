@@ -1,18 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BROWSER_FETCHABLE, rainDatasetId, type BrowserFeedId, type FeedDataMap } from "@taiwan-life-data/collectors";
+import { BROWSER_FETCHABLE, rainDatasetId, type BrowserFeedId } from "@taiwan-life-data/collectors";
 import { COUNTIES, dataAgeMinutes, FEEDS, formatTaipei, townsOf, type FeedEnvelope, type FeedId, type FeedStatus, type Town } from "@taiwan-life-data/contract";
-import { assessAqi, assessHeat, assessRain, assessUv, assessWarnings, summarize, type Verdict } from "./assess";
-import { loadSnapshot, pickBest, readOfficial } from "./load";
+import { assessCard, covers, FAIL_CLOSED, ORDER, SHORT_LABEL, summarize, type CardFeed, type Verdict } from "@taiwan-life-data/assess";
+import { pickBest } from "@taiwan-life-data/assess";
+import { loadSnapshot, readOfficial } from "./load";
 import { placeUrl, readPlace, savePlace } from "./place";
 import { ShareBar } from "./ShareBar";
 import type { ShareItem } from "./share";
 
-/** Order of the 出門前 card (PLAN): warnings → heat / UV → air quality → rain. */
-type CardFeed = "warnings" | "heat" | "uv" | "aqi" | "rain";
-export const ORDER: CardFeed[] = ["warnings", "heat", "uv", "aqi", "rain"];
-
 const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
-const SHORT_LABEL: Record<CardFeed, string> = { warnings: "警特報", heat: "熱傷害", uv: "紫外線", aqi: "空品", rain: "降雨" };
 
 type AnyEnvelope = FeedEnvelope<unknown>;
 /** undefined = still loading, null = failed. */
@@ -21,25 +17,6 @@ type Snapshots = Partial<Record<FeedId, AnyEnvelope | null>>;
 type Official = Record<string, AnyEnvelope | null | "loading">;
 
 const officialKey = (feed: FeedId, county: string) => (feed === "rain" ? `rain:${county}` : feed);
-
-/** Rain snapshots can miss a county (partial collect); treat that as "no data here". */
-const covers = (feed: FeedId, envelope: AnyEnvelope | null | undefined, town: Town) =>
-  !!envelope?.data && (feed !== "rain" || (envelope.data as FeedDataMap["rain"]).towns.some((t) => t.geocode === town.geocode));
-
-const assess = (feed: CardFeed, data: unknown, town: Town, now: number): Verdict => {
-  switch (feed) {
-    case "warnings": return assessWarnings(data as FeedDataMap["warnings"], town, now);
-    case "heat": return assessHeat(data as FeedDataMap["heat"], town, now);
-    case "uv": return assessUv(data as FeedDataMap["uv"], town, now);
-    case "aqi": return assessAqi(data as FeedDataMap["aqi"], town, now);
-    case "rain": return assessRain(data as FeedDataMap["rain"], town, now);
-  }
-};
-
-const FAIL_CLOSED: Record<"stale" | "unavailable", (feed: FeedId) => string> = {
-  stale: () => "資料過舊，不做判斷。請以官方網站為準。",
-  unavailable: (feed) => (feed === "warnings" ? "目前讀不到警特報——這不代表沒有警特報。" : "目前無法取得這項資料。"),
-};
 
 interface FeedView {
   feed: CardFeed;
@@ -92,7 +69,7 @@ function useFeeds(town: Town | null, now: number): FeedView[] {
     if (!best) {
       return { feed, pending, refreshing: false, envelope: snapshot ?? null, status: pending ? null : "unavailable", verdict: null };
     }
-    const verdict = best.status === "live" || best.status === "delayed" ? assess(feed, best.envelope.data, town, now) : null;
+    const verdict = best.status === "live" || best.status === "delayed" ? assessCard(feed, best.envelope.data, town, now) : null;
     return { feed, pending: false, refreshing: loading, envelope: best.envelope, status: best.status, verdict };
   });
 }

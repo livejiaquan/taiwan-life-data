@@ -8,6 +8,8 @@
   "workspaces": [
     "packages/contract",
     "packages/collectors",
+    "packages/assess",
+    "packages/mcp-server",
     "apps/web"
   ],
   "engines": {
@@ -20,6 +22,7 @@
     "collect": "tsx packages/collectors/scripts/collect.ts",
     "build": "npm run build -w apps/web",
     "build:public": "tsx scripts/build-public.ts",
+    "build:mcp": "npm run build -w taiwan-life-data-mcp",
     "probe": "tsx scripts/probe-endpoints.ts",
     "gen:towns": "tsx scripts/gen-towns.ts",
     "dev": "npm run dev -w apps/web",

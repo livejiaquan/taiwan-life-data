@@ -24,7 +24,7 @@ import {
   type IntensityPoint,
   type PowerData,
 } from "@taiwan-life-data/collectors";
-import { FEEDS, type FeedId } from "@taiwan-life-data/contract";
+import { FEEDS, isIncidentLog, isStatusDoc, mergeIncidentLog, type FeedId } from "@taiwan-life-data/contract";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const DATA = join(ROOT, "apps/web/public/data");
@@ -86,6 +86,16 @@ for (const feed of Object.keys(FEEDS) as FeedId[]) {
   console.log(`archive ${feed.padEnd(9)} ${note}; ${keep.length} days kept${drop.length ? `, ${drop.length} pruned` : ""}`);
 }
 await writeAtomic(join(V1, "index.json"), index);
+
+// Long-term incident log: status.json keeps only the last 100 incidents.
+const status = await readJson(join(DATA, "status.json"));
+if (isStatusDoc(status)) {
+  const prevLog = await readJson(join(V1, "incidents.json"));
+  if (prevLog !== undefined && !isIncidentLog(prevLog)) throw new Error("archive: v1/incidents.json 不是有效的事故紀錄，停止以免覆蓋歷史");
+  const log = mergeIncidentLog(prevLog ?? null, status.incidents, now, ARCHIVE_RETENTION_DAYS);
+  await writeAtomic(join(V1, "incidents.json"), log);
+  console.log(`archive incidents ${log.incidents.length} kept (${log.incidents.filter((i) => i.endedAt === null).length} open)`);
+} else console.log("archive incidents: no status.json, skipped");
 
 // 綠電時段 from our own power samples of the last 14 days.
 const points: IntensityPoint[] = [];

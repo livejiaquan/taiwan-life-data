@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FeedDataMap } from "@taiwan-life-data/collectors";
 import { COUNTIES, findTown, TOWNS, townsOf } from "@taiwan-life-data/contract";
-import { assessAqi, assessHeat, assessRain, assessUv, assessWarnings, summarize } from "./assess";
+import { assessAqi, assessHeat, assessRain, assessUv, assessWarnings, summarize } from "@taiwan-life-data/assess";
 import { readPlace } from "./place";
 import { buildShareText, lineShareUrl } from "./share";
 

@@ -1,6 +1,6 @@
 import { computeProfile, type FeedDataMap } from "@taiwan-life-data/collectors";
 import { describe, expect, it } from "vitest";
-import { assessPower, reservoirRows, windowText } from "./today";
+import { assessPower, reservoirRows, windowText } from "../src/today";
 
 /** flatProfile ends 2026-10-03 23:00 +08; this is within its 3-day window. */
 const NOW = Date.parse("2026-10-04T12:10:00+08:00");

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@taiwan-life-data/assess": "0.1.0",
     "@taiwan-life-data/collectors": "0.1.0",
     "@taiwan-life-data/contract": "0.1.0",
     "react": "^19.1.1",

@@ -1,5 +1,5 @@
 import { formatTaipei, type FeedStatus } from "@taiwan-life-data/contract";
-import type { Tone } from "./assess";
+import type { Tone } from "@taiwan-life-data/assess";
 
 export interface ShareItem {
   label: string;

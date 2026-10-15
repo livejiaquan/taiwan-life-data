@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": { ".": "./src/index.ts", "./server": "./src/server.ts" },
   "dependencies": {
     "@taiwan-life-data/contract": "0.1.0"
   }

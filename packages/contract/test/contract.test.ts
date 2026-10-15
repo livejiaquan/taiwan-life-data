@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COUNTIES, computeStatus, createEnvelope, currentStatus, distanceKm, FEEDS, findTown, formatTaipei, normalizeCountyName, parseEnvelope, isStatusDoc, parseOfficialTime, percentile, TOWNS, townsOf, updateStatus } from "../src/index";
+import { COUNTIES, computeStatus, createEnvelope, currentStatus, distanceKm, FEEDS, findTown, formatTaipei, normalizeCountyName, parseEnvelope, isStatusDoc, parseOfficialTime, percentile, TOWNS, townsOf, updateStatus, openCollectGap, mergeIncidentLog, isIncidentLog, incidentKey, incidentsAtom } from "../src/index";
 
 const at = (iso: string) => Date.parse(iso);
 
@@ -131,6 +131,61 @@ describe("status history", () => {
     for (let h = 1; h < 6; h++) doc = updateStatus(doc, `2026-10-16T0${h}:00:00.000Z`, [h % 2 ? ok("aqi") : failed], { runs: 3, incidents: 1 });
     expect(doc.runs.map((r) => r.at.slice(11, 13))).toEqual(["03", "04", "05"]);
     expect(doc.incidents).toHaveLength(1);
+  });
+
+  it("tracks how long an incident lasted and how bad it got", () => {
+    let doc = updateStatus(null, "2026-10-16T01:00:00.000Z", [ok("uv", "stale")]);
+    doc = updateStatus(doc, "2026-10-16T01:30:00.000Z", [{ ...ok("uv", "stale"), ageMinutes: 340 }]);
+    expect(doc.incidents).toHaveLength(1);
+    expect(doc.incidents[0]).toMatchObject({ runs: 2, lastSeenAt: "2026-10-16T01:30:00.000Z", worstAgeMinutes: 340, endedAt: null });
+  });
+
+  it("records a collector gap when the next run finally arrives, and shows an open one live", () => {
+    const s1 = updateStatus(null, "2026-10-16T01:00:00.000Z", [ok("aqi")]);
+    expect(openCollectGap(s1, Date.parse("2026-10-16T01:45:00.000Z"))).toBeNull();
+    const open = openCollectGap(s1, Date.parse("2026-10-16T04:00:00.000Z"));
+    expect(open).toMatchObject({ feed: "collector", kind: "collect-gap", startedAt: "2026-10-16T01:00:00.000Z", endedAt: null });
+    expect(open!.detail).toContain("3 小時");
+
+    const s2 = updateStatus(s1, "2026-10-16T04:00:00.000Z", [ok("aqi")]);
+    expect(s2.incidents).toEqual([expect.objectContaining({ feed: "collector", kind: "collect-gap", startedAt: "2026-10-16T01:00:00.000Z", endedAt: "2026-10-16T04:00:00.000Z" })]);
+    expect(isStatusDoc(JSON.parse(JSON.stringify(s2)))).toBe(true);
+    // Exactly the threshold is not a gap.
+    expect(updateStatus(s2, "2026-10-16T05:00:00.000Z", [ok("aqi")]).incidents).toHaveLength(1);
+  });
+
+  it("still accepts status.json written before incidents had lastSeenAt/runs", () => {
+    const legacy = { schemaVersion: 1, generatedAt: "x", feeds: {}, runs: [], incidents: [{ feed: "aqi", kind: "stale", startedAt: "2026-10-16T00:00:00.000Z", endedAt: null, detail: "d" }] };
+    expect(isStatusDoc(legacy)).toBe(true);
+    expect(isStatusDoc({ ...legacy, incidents: [{ ...legacy.incidents[0], kind: "mystery" }] })).toBe(false);
+    expect(isStatusDoc({ ...legacy, incidents: [{ ...legacy.incidents[0], feed: "nope" }] })).toBe(false);
+  });
+
+  it("keeps a long-term incident log beyond status.json's cap", () => {
+    const old = { feed: "aqi" as const, kind: "stale" as const, startedAt: "2026-06-01T00:00:00.000Z", endedAt: "2026-06-01T02:00:00.000Z", detail: "old" };
+    const openThen = { feed: "uv" as const, kind: "stale" as const, startedAt: "2026-10-15T00:00:00.000Z", endedAt: null, detail: "open" };
+    const now = Date.parse("2026-10-16T12:00:00.000Z");
+    const log1 = mergeIncidentLog(null, [old, openThen], now);
+    expect(log1.incidents.map((i) => i.detail)).toEqual(["open"]); // older than 90 days and closed → dropped
+    const closed = { ...openThen, endedAt: "2026-10-16T01:00:00.000Z" };
+    const log2 = mergeIncidentLog(log1, [closed], now);
+    expect(log2.incidents).toEqual([closed]);
+    // An incident that fell out of status.json stays in the log.
+    expect(mergeIncidentLog(log2, [], now).incidents).toEqual([closed]);
+    expect(isIncidentLog(JSON.parse(JSON.stringify(log2)))).toBe(true);
+    expect(incidentKey(closed)).toBe("uv/stale/2026-10-15T00:00:00.000Z");
+  });
+
+  it("publishes incidents as an escaped Atom feed", () => {
+    let doc = updateStatus(null, "2026-10-16T01:00:00.000Z", [{ ...failed, error: "<bad> & worse" }]);
+    doc = updateStatus(doc, "2026-10-16T03:00:00.000Z", [ok("aqi")]);
+    const atom = incidentsAtom(doc, "https://example.org/site");
+    expect(atom).toContain("<title>[已恢復] 空氣品質指標：收集失敗</title>");
+    expect(atom).toContain("[已恢復] 收集排程：收集中斷");
+    expect(atom).toContain("&lt;bad&gt; &amp; worse");
+    expect(atom).not.toContain("<bad>");
+    expect(atom).toContain('href="https://example.org/site/data/incidents.xml"');
+    expect(atom.match(/<entry>/g)).toHaveLength(2);
   });
 
   it("computes nearest-rank percentiles", () => {

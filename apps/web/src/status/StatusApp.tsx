@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { BROWSER_FETCHABLE, parseFeedEnvelope } from "@taiwan-life-data/collectors";
-import { currentStatus, dataAgeMinutes, FEEDS, formatTaipei, isStatusDoc, percentile, type FeedEnvelope, type FeedId, type FeedStatus, type StatusDoc } from "@taiwan-life-data/contract";
+import { currentStatus, dataAgeMinutes, FEEDS, formatTaipei, INCIDENT_KIND_TEXT, incidentKey, incidentLabel, isStatusDoc, openCollectGap, percentile, sortIncidents, type FeedEnvelope, type FeedId, type FeedStatus, type StatusDoc } from "@taiwan-life-data/contract";
 
 const FEED_IDS = Object.keys(FEEDS) as FeedId[];
 const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
-const KIND_TEXT = { "collect-failed": "收集失敗", stale: "資料過舊" } as const;
 
 const minutes = (n: number | null | undefined) =>
   n == null ? "—" : n < 60 ? `${n} 分` : n < 48 * 60 ? `${Math.floor(n / 60)} 小時 ${n % 60} 分` : `${Math.round(n / 1440)} 天`;
@@ -63,7 +62,10 @@ export function StatusApp() {
 
   const { doc, envelopes, error } = loaded;
   const stats = doc ? runStats(doc) : null;
-  const incidents = doc ? [...doc.incidents].sort((a, b) => Number(a.endedAt !== null) - Number(b.endedAt !== null) || b.startedAt.localeCompare(a.startedAt)) : [];
+  // A collector that has stopped cannot record its own outage, so the open gap is computed here.
+  const gap = doc ? openCollectGap(doc, now) : null;
+  const incidents = doc ? sortIncidents(gap ? [gap, ...doc.incidents] : doc.incidents) : [];
+  const openCount = incidents.filter((i) => i.endedAt === null).length;
 
   return (
     <main className="page">
@@ -121,16 +123,24 @@ export function StatusApp() {
 
       <section aria-labelledby="h-incidents">
         <h2 id="h-incidents" className="section-title">事故紀錄</h2>
-        {doc && !incidents.length && <p>目前沒有紀錄到事故。</p>}
+        <p className="muted">
+          每次收集自動判定：讀取或驗證失敗 → 收集失敗；收集時資料過舊或無法取得 → 資料過舊；兩次收集相隔超過 1 小時 → 收集中斷。恢復時自動結案。
+          訂閱：<a href={`${import.meta.env.BASE_URL}data/incidents.xml`}>Atom feed</a>；長期紀錄：<a href={`${import.meta.env.BASE_URL}archive/v1/incidents.json`}>archive/v1/incidents.json</a>（90 天）。
+        </p>
+        {doc && <p>{openCount ? `目前有 ${openCount} 件進行中的事故。` : "目前沒有進行中的事故。"}{incidents.length > openCount && ` 另有 ${incidents.length - openCount} 件已恢復的紀錄。`}</p>}
         {incidents.length > 0 && (
           <ul className="incidents">
             {incidents.map((i) => (
-              <li key={`${i.feed}-${i.startedAt}`} className={i.endedAt ? "" : "open"}>
-                <strong>{i.endedAt ? "已恢復" : "進行中"}・{FEEDS[i.feed].label}・{KIND_TEXT[i.kind]}</strong>
+              <li key={incidentKey(i)} className={i.endedAt ? "" : "open"}>
+                <strong>{i.endedAt ? "已恢復" : "進行中"}・{incidentLabel(i)}・{INCIDENT_KIND_TEXT[i.kind]}</strong>
                 <span>
                   {formatTaipei(i.startedAt)} → {i.endedAt ? `${formatTaipei(i.endedAt)}（${minutes(Math.round((Date.parse(i.endedAt) - Date.parse(i.startedAt)) / 60_000))}）` : "尚未恢復"}
                 </span>
-                <span className="muted">{i.detail}</span>
+                <span className="muted">
+                  {i.detail}
+                  {(i.runs ?? 0) > 1 && `；連續 ${i.runs} 次收集`}
+                  {i.worstAgeMinutes != null && i.kind === "stale" && `；資料年齡最高 ${minutes(i.worstAgeMinutes)}`}
+                </span>
               </li>
             ))}
           </ul>
@@ -139,7 +149,7 @@ export function StatusApp() {
 
       <footer className="footer">
         <p>判定規則：沒有資料 → 無法取得；時間缺失、無法解析或在未來 → 過舊；超過門檻 → 延遲／過舊。過舊或無法取得時首頁不下結論。</p>
-        <p><a href={import.meta.env.BASE_URL}>回首頁</a>・<a href={`${import.meta.env.BASE_URL}data/status.json`}>status.json</a>・<a href="https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/DECISIONS.md">技術決策與實測</a></p>
+        <p><a href={import.meta.env.BASE_URL}>回首頁</a>・<a href={`${import.meta.env.BASE_URL}data/status.json`}>status.json</a>・<a href={`${import.meta.env.BASE_URL}data/incidents.xml`}>事故 Atom feed</a>・<a href="https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/DECISIONS.md">技術決策與實測</a></p>
       </footer>
     </main>
   );
