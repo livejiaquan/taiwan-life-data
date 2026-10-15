@@ -17,6 +17,8 @@
 | `data/index.json` | 每個 feed 的收集當下狀態、`sourceTime`、資料年齡（分鐘） | 每次收集 |
 | `data/{feed}.json` | 最新快照（FeedEnvelope，見下） | 每次收集 |
 | `data/status.json` | 收集紀錄、各 feed 健康狀態、事故清單（`/status` 頁的資料） | 每次收集 |
+| `data/incidents.xml` | 事故 Atom feed（最近 50 件，進行中優先），可用 RSS 閱讀器訂閱 | 每次收集 |
+| `archive/v1/incidents.json` | 長期事故紀錄（`IncidentLog`，保留 90 天；`status.json` 只留最近 100 件） | 每次收集 |
 | `data/power-profile.json` | 綠電時段：本站最近 14 天的逐時平均碳強度 | 每次收集 |
 | `archive/v1/index.json` | 歷史存檔目錄：每個 feed 有哪些日期 | 每次收集 |
 | `archive/v1/{feed}/{YYYY-MM-DD}.json` | 某 feed 某一天（台北日期）的所有官方更新 | 每次收集 |
@@ -116,6 +118,29 @@ interface PowerProfile {
 ```
 
 這是**過去的規律，不是預報**。需要至少 48 筆樣本、18 個小時有資料才會給出時段，否則 `insufficient` 會寫原因。
+
+## 事故（`status.json` 的 `incidents`、`incidents.xml`、`archive/v1/incidents.json`）
+
+每次收集自動判定，不經人工編修：
+
+```ts
+interface Incident {
+  feed: FeedId | "collector";   // "collector" = 收集排程本身
+  kind: "collect-failed"        // 讀取或驗證官方資料失敗
+      | "stale"                 // 收集當下快照過舊或無法取得
+      | "collect-gap";          // 兩次收集相隔超過 60 分鐘（排程目標每 15 分）
+  startedAt: string;            // ISO 8601
+  endedAt: string | null;       // null = 進行中；恢復時自動填入
+  detail: string;
+  lastSeenAt?: string;          // 最近一次仍看到問題的收集（舊紀錄沒有這個欄位）
+  runs?: number;                // 看到問題的收集次數
+  worstAgeMinutes?: number | null;
+}
+interface IncidentLog { schemaVersion: 1; updatedAt: string; retentionDays: 90; incidents: Incident[] } // 依 startedAt 排序
+```
+
+- 唯一鍵：`${feed}/${kind}/${startedAt}`（Atom entry 的 `id` 也用它）。
+- **「收集中斷」進行中時不會寫進檔案**——收集器停了就沒辦法記錄自己。請用 `status.json` 最後一筆 `runs[].at` 與現在相比，超過 60 分鐘就視為進行中的中斷（`/status` 頁與 MCP server 都這樣算，程式見 `packages/contract/src/status.ts` 的 `openCollectGap`）。
 
 ## 歷史存檔（`archive/v1/`）
 
