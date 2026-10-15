@@ -11,3 +11,6 @@ export const CWA_FILES = {
   uv: `${CWA_PUBLIC_BASE}/Observation/O-A0003-001.json`,
   heat: `${CWA_PUBLIC_BASE}/Model/M-A0085-001.json`,
 } as const;
+
+/** F-D0047-0xx township forecast for one county (code from RAIN_FILE_CODES). */
+export const cwaRainFile = (code: string) => `${CWA_PUBLIC_BASE}/Forecast/F-D0047-${code}.json`;

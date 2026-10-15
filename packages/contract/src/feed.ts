@@ -3,7 +3,7 @@ import { parseOfficialTime } from "./time";
 export const FEED_STATUSES = ["live", "delayed", "stale", "unavailable"] as const;
 export type FeedStatus = (typeof FEED_STATUSES)[number];
 
-export type FeedId = "warnings" | "uv" | "heat" | "aqi";
+export type FeedId = "warnings" | "uv" | "heat" | "aqi" | "rain";
 
 export interface FeedSource {
   /** Agency, e.g. 交通部中央氣象署 */
@@ -91,6 +91,19 @@ export const FEEDS: Record<FeedId, FeedDefinition> = {
       license: MOENV_LICENSE,
     },
     freshness: { basis: "sourceTime", liveForMinutes: 80, delayedForMinutes: 180, cadence: "每小時" },
+  },
+  rain: {
+    id: "rain",
+    label: "降雨機率",
+    source: {
+      agency: "交通部中央氣象署",
+      title: "鄉鎮天氣預報－各縣市未來 3 天天氣預報（3 小時降雨機率）",
+      datasetId: "F-D0047",
+      url: "https://opendata.cwa.gov.tw/dataset/forecast/F-D0047-061",
+      license: CWA_LICENSE,
+    },
+    // Basis is IssueTime; issued 4 times a day and published ~75 min later (docs/DECISIONS.md D11).
+    freshness: { basis: "sourceTime", liveForMinutes: 450, delayedForMinutes: 810, cadence: "每 6 小時" },
   },
 };
 

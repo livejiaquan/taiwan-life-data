@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeStatus, createEnvelope, currentStatus, FEEDS, formatTaipei, normalizeCountyName, parseEnvelope, parseOfficialTime } from "../src/index";
+import { COUNTIES, computeStatus, createEnvelope, currentStatus, distanceKm, FEEDS, findTown, formatTaipei, normalizeCountyName, parseEnvelope, isStatusDoc, parseOfficialTime, percentile, TOWNS, townsOf, updateStatus } from "../src/index";
 
 const at = (iso: string) => Date.parse(iso);
 
@@ -79,5 +79,63 @@ describe("helpers", () => {
   it("formats Taiwan wall-clock time", () => {
     expect(formatTaipei("2026-10-15T16:20:00Z")).toBe("10/16 00:20");
     expect(formatTaipei(null)).toBe("—");
+  });
+});
+
+describe("townships", () => {
+  it("lists all 368 townships with unique geocodes, every county covered", () => {
+    expect(TOWNS).toHaveLength(368);
+    expect(new Set(TOWNS.map((t) => t.geocode)).size).toBe(368);
+    expect(COUNTIES.reduce((n, c) => n + townsOf(c.name).length, 0)).toBe(368);
+    for (const c of COUNTIES) expect(townsOf(c.name).length, c.name).toBeGreaterThan(0);
+    for (const t of TOWNS) expect(t.geocode.startsWith(COUNTIES.find((c) => c.name === t.county)!.geocode), t.town).toBe(true);
+  });
+
+  it("resolves every township by name, accepting 台 for 臺", () => {
+    for (const t of TOWNS) expect(findTown(t.county, t.town)).toBe(t);
+    expect(findTown("台南市", "東區")?.geocode).toBe("67000320");
+    expect(findTown("臺南市", "不存在區")).toBeUndefined();
+    expect(findTown("臺北市", "東區")).toBeUndefined();
+  });
+
+  it("measures distance in km", () => {
+    expect(distanceKm({ lat: 25.0330, lon: 121.5654 }, { lat: 22.6273, lon: 120.3014 })).toBeCloseTo(297, -1);
+  });
+});
+
+describe("status history", () => {
+  const ok = (feed: "aqi" | "uv", status: "live" | "stale" = "live") => ({ feed, attemptOk: true, error: null, status, sourceTime: "2026-10-16T00:00:00.000Z", ageMinutes: status === "live" ? 20 : 300 });
+  const failed = { feed: "aqi" as const, attemptOk: false, error: "AQX_P_432 HTTP 503", status: "delayed" as const, sourceTime: "2026-10-16T00:00:00.000Z", ageMinutes: 95 };
+
+  it("records last success and opens/closes incidents on transitions", () => {
+    const s1 = updateStatus(null, "2026-10-16T01:00:00.000Z", [ok("aqi"), ok("uv")]);
+    expect(s1.feeds.aqi).toMatchObject({ lastAttemptOk: true, lastSuccessAt: "2026-10-16T01:00:00.000Z" });
+    expect(s1.incidents).toEqual([]);
+
+    const s2 = updateStatus(s1, "2026-10-16T02:00:00.000Z", [failed, ok("uv", "stale")]);
+    expect(s2.feeds.aqi).toMatchObject({ lastAttemptOk: false, lastSuccessAt: "2026-10-16T01:00:00.000Z", lastError: "AQX_P_432 HTTP 503", status: "delayed" });
+    expect(s2.incidents.map((i) => [i.feed, i.kind, i.endedAt])).toEqual([["aqi", "collect-failed", null], ["uv", "stale", null]]);
+
+    const s3 = updateStatus(s2, "2026-10-16T03:00:00.000Z", [failed, ok("uv")]);
+    expect(s3.incidents).toHaveLength(2); // still the same open aqi incident
+    expect(s3.incidents[1]!.endedAt).toBe("2026-10-16T03:00:00.000Z");
+
+    const s4 = updateStatus(s3, "2026-10-16T04:00:00.000Z", [ok("aqi"), ok("uv")]);
+    expect(s4.incidents.every((i) => i.endedAt !== null)).toBe(true);
+    expect(s4.runs).toHaveLength(4);
+    expect(isStatusDoc(JSON.parse(JSON.stringify(s4)))).toBe(true);
+  });
+
+  it("caps history but keeps open incidents", () => {
+    let doc = updateStatus(null, "2026-10-16T00:00:00.000Z", [failed], { runs: 3, incidents: 1 });
+    for (let h = 1; h < 6; h++) doc = updateStatus(doc, `2026-10-16T0${h}:00:00.000Z`, [h % 2 ? ok("aqi") : failed], { runs: 3, incidents: 1 });
+    expect(doc.runs.map((r) => r.at.slice(11, 13))).toEqual(["03", "04", "05"]);
+    expect(doc.incidents).toHaveLength(1);
+  });
+
+  it("computes nearest-rank percentiles", () => {
+    expect(percentile([5, 1, 3, 2, 4], 50)).toBe(3);
+    expect(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 100], 95)).toBe(19);
+    expect(percentile([], 95)).toBeUndefined();
   });
 });

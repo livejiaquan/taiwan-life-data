@@ -3,6 +3,7 @@ export * from "./collect";
 export * from "./fetch";
 export * from "./heat";
 export * from "./parse";
+export * from "./rain";
 export * from "./sources";
 export * from "./uv";
 export * from "./validators";

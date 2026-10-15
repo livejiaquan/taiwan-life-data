@@ -6,6 +6,10 @@ export interface UvStation {
   name: string;
   county: string;
   town: string | null;
+  /** Township geocode (TownCode); absent in snapshots made before phase 2. */
+  townCode?: string | null;
+  lat?: number | null;
+  lon?: number | null;
   observedAt: string;
   uvIndex: number | null;
   temperature: number | null;
@@ -37,11 +41,15 @@ export const parseUvObservations = (payload: unknown, rules: UvValidation = UV_P
       const observed = parseOfficialTime(asRecord(record.ObsTime).DateTime);
       const id = toText(record.StationId);
       if (!county || observed === undefined || !id) return undefined;
+      const wgs84 = asRecord(asArray(geo.Coordinates).find((c) => asRecord(c).CoordinateName === "WGS84"));
       const station: UvStation = {
         id,
         name: toText(record.StationName) ?? id,
         county,
         town: toText(geo.TownName) ?? null,
+        townCode: toText(geo.TownCode) ?? null,
+        lat: boundedNumber(wgs84.StationLatitude, 21, 27) ?? null,
+        lon: boundedNumber(wgs84.StationLongitude, 118, 123) ?? null,
         observedAt: toIso(observed)!,
         uvIndex: boundedNumber(weather.UVIndex, 0, 30) ?? null,
         temperature: boundedNumber(weather.AirTemperature, -50, 60) ?? null,

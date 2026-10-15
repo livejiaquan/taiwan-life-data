@@ -5,8 +5,10 @@ import {
   collectFeed,
   createJsonFetcher,
   CWA_FILES,
+  cwaRainFile,
   parseAqi,
   parseFeedEnvelope,
+  parseRainCounty,
   parseHeat,
   parseUvObservations,
   parseWarnings,
@@ -56,7 +58,7 @@ describe("uv (O-A0003-001)", () => {
   it("keeps stations with UV or temperature and normalizes times", () => {
     const data = parseUvObservations(fixture("O-A0003-001.json"), SMALL_UV);
     const keelung = data.stations.find((s) => s.id === "466940")!;
-    expect(keelung).toMatchObject({ county: "基隆市", town: "仁愛區", uvIndex: 0, temperature: 24.5, humidity: 84 });
+    expect(keelung).toMatchObject({ county: "基隆市", town: "仁愛區", townCode: "10017040", lat: 25.133314, lon: 121.740475, uvIndex: 0, temperature: 24.5, humidity: 84 });
     expect(keelung.observedAt).toBe("2026-10-15T16:10:00.000Z");
     expect(data.stations.filter((s) => s.uvIndex !== null)).toHaveLength(30);
   });
@@ -102,6 +104,48 @@ describe("heat (M-A0085-001)", () => {
   });
 });
 
+describe("rain (F-D0047 township 3-day forecast)", () => {
+  it("parses every township of the county with 3-hour PoP and weather", () => {
+    const data = parseRainCounty(fixture("F-D0047-001.json"), "宜蘭縣");
+    expect(data.issuedAt).toBe("2026-10-15T15:00:00.000Z");
+    expect(data.towns).toHaveLength(12);
+    expect(data.towns[0]).toMatchObject({ county: "宜蘭縣", town: "宜蘭市", geocode: "10002010" });
+    expect(data.towns[0]!.slots[0]).toEqual({ start: "2026-10-15T16:00:00.000Z", pop: 30, weather: "短暫雨" });
+  });
+
+  it("refuses a file for another county or with a township missing", () => {
+    expect(() => parseRainCounty(fixture("F-D0047-001.json"), "臺北市")).toThrow(/不符/);
+    const payload = clone(fixture("F-D0047-001.json")) as { cwaopendata: { Dataset: { Locations: { Location: unknown[] } } } };
+    payload.cwaopendata.Dataset.Locations.Location.pop();
+    expect(() => parseRainCounty(payload, "宜蘭縣")).toThrow(/鄉鎮 11／12/);
+  });
+
+  it("collects only the requested counties and trims past slots", async () => {
+    const envelope = await collectFeed("rain", {
+      fetchJson: async (url) => {
+        if (url === cwaRainFile("001")) return fixture("F-D0047-001.json");
+        throw new Error("offline");
+      },
+      now: () => Date.parse("2026-10-16T07:00:00+08:00"),
+      counties: ["宜蘭縣"],
+    });
+    expect(envelope.status).toBe("delayed"); // issued 23:00, read at 07:00 — 8 h old
+    expect(envelope.data!.towns).toHaveLength(12);
+    expect(envelope.data!.towns[0]!.slots[0]!.start).toBe("2026-10-15T22:00:00.000Z");
+    expect(() => parseFeedEnvelope("rain", JSON.parse(JSON.stringify(envelope)))).not.toThrow();
+  });
+
+  it("keeps the counties that loaded and names the ones that did not", async () => {
+    const envelope = await collectFeed("rain", {
+      fetchJson: async (url) => (url === cwaRainFile("001") ? fixture("F-D0047-001.json") : Promise.reject(new Error("F-D0047 HTTP 503"))),
+      now: () => NOW,
+      counties: ["宜蘭縣", "臺北市"],
+    });
+    expect(envelope.data!.towns).toHaveLength(12);
+    expect(envelope.issues).toEqual(["臺北市：F-D0047 HTTP 503"]);
+  });
+});
+
 describe("aqi (AQX_P_432)", () => {
   it("parses all 84 stations across 22 counties", () => {
     const data = parseAqi(fixture("aqx_p_432.json"), NOW);
@@ -109,6 +153,7 @@ describe("aqi (AQX_P_432)", () => {
     expect(new Set(data.stations.map((s) => s.county)).size).toBe(22);
     expect(data.stations[0]).toMatchObject({ siteId: "1", name: "基隆", county: "基隆市", aqi: 43, status: "良好", pm25: 5 });
     expect(data.stations[0]!.publishTime).toBe("2026-10-15T16:00:00.000Z");
+    expect(data.stations.every((s) => typeof s.lat === "number" && typeof s.lon === "number")).toBe(true);
   });
 
   it("refuses duplicates, low coverage and future-dated rows", () => {

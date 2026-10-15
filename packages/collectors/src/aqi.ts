@@ -13,6 +13,9 @@ export interface AqiStation {
   pm10: number | null;
   o3_8hr: number | null;
   publishTime: string;
+  /** Absent in snapshots made before phase 2. */
+  lat?: number | null;
+  lon?: number | null;
 }
 
 export interface AqiData {
@@ -67,6 +70,8 @@ export const parseAqi = (payload: unknown, now: number, rules: AqiValidation = A
       pm10: boundedNumber(row.pm10, 0, 2000) ?? null,
       o3_8hr: boundedNumber(row.o3_8hr, 0, 1000) ?? null,
       publishTime: toIso(publish)!,
+      lat: boundedNumber(row.latitude, 21, 27) ?? null,
+      lon: boundedNumber(row.longitude, 118, 123) ?? null,
     });
   }
   if (stations.length < rules.minRecords) throw new ValidationError("aqi", `有效測站 ${stations.length}，少於 ${rules.minRecords}`);

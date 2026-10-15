@@ -21,6 +21,7 @@
     "build": "npm run build -w apps/web",
     "build:public": "tsx scripts/build-public.ts",
     "probe": "tsx scripts/probe-endpoints.ts",
+    "gen:towns": "tsx scripts/gen-towns.ts",
     "dev": "npm run dev -w apps/web"
   },
   "devDependencies": {
