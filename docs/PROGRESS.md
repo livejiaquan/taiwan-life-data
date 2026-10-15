@@ -1,17 +1,103 @@
 # 進度（PROGRESS）
 
-（「需要使用者」#1 推上 workflow 時注意：本機 `main` 比 `origin/main` 多一個 workflow commit，直接 `git push` 即可。）
+（「需要使用者」#1 推上 workflow 時注意：本機 `main` 與 `origin/main` **內容相同但已分岔**——本機多兩個 workflow commit，而第 3 階段的 commit 是用 cherry-pick 推上去的（DECISIONS D24）。順序：`gh auth refresh -h github.com -s workflow` → `git pull --rebase`（git 會自動略過內容相同的 commit）→ `git push`。）
 
 ## 需要使用者
 
 | # | 要做的事 | 為什麼 | 怎麼做 | 目前替代方案 |
 |---|---|---|---|---|
-| 1 | **給 gh token 加 `workflow` 權限，推上 workflow commit** | 現有 OAuth token 只有 `gist, read:org, repo`，GitHub 拒絕推送 `.github/workflows/*`（`refusing to allow an OAuth App to create or update workflow … without workflow scope`）。沒有 workflow 就沒有 CI、也沒有排程收集。 | 在本 repo 執行：`gh auth refresh -h github.com -s workflow`（瀏覽器授權）→ `git push`（推上本機已備好的 commit「Add CI and collect-and-deploy workflows」）→ `gh api -X PUT repos/livejiaquan/taiwan-life-data/pages -f build_type=workflow`（Pages 改由 workflow 部署） | 本機建置後推到 `gh-pages` 分支，Pages 以 legacy 方式從該分支提供。CWA 三個 feed 由瀏覽器直接讀官方檔，不受影響；AQI 快照不會自動更新，過 80 分鐘顯示「延遲」、3 小時後顯示「過舊」且不下結論。 |
+| 1 | **給 gh token 加 `workflow` 權限，推上 workflow commit** | 現有 OAuth token 只有 `gist, read:org, repo`，GitHub 拒絕推送 `.github/workflows/*`。沒有 workflow 就沒有 CI、排程收集，**存檔也不會自己每天累積**（第 3 階段的存檔步驟寫在 `pages.yml`）。 | 在本 repo：`gh auth refresh -h github.com -s workflow`（瀏覽器授權）→ `git pull --rebase` → `git push` → `gh api -X PUT repos/livejiaquan/taiwan-life-data/pages -f build_type=workflow`（Pages 改由 workflow 部署） | 執行 `./scripts/deploy-gh-pages.sh`：collect → 存檔 commit 到 `data` 分支 → 金鑰檢查建置 → 覆寫 `gh-pages`。本 session 已用它部署兩次。 |
 | 2 | 設定 GitHub secret `MOENV_API_KEY` | PLAN 指定 AQI 走自己的金鑰 | 到 https://data.moenv.gov.tw/ 申請 API key → `gh secret set MOENV_API_KEY -R livejiaquan/taiwan-life-data` | collector 改用環境部刊登在 data.gov.tw 的公開下載連結（執行時解析，不入庫、不進瀏覽器），見 DECISIONS D3 |
-| 3 | `npx wrangler login`（Cloudflare 帳號） | AQI 要達到 p95 ≤ 30 分，需要準時排程；Actions 實測間隔中位數 2–5 小時（DECISIONS D2） | 執行 `npx wrangler login`，完成後告訴下一階段 session，由它建立 Workers Cron | 見 #1 的替代方案 |
-| 4 | **把第 2 階段部署上線** | 本 session 執行 `scripts/deploy-gh-pages.sh` 時被 Claude Code 自動模式判為「正式環境部署」擋下（未繞過）。程式已推上 `main`，但線上網址仍是第 1 階段版本。 | 在本 repo 執行 `./scripts/deploy-gh-pages.sh`（collect → 金鑰檢查建置 → 覆寫 `gh-pages`）；或完成 #1 後由 Pages workflow 自動部署。部署後可用 `npx lighthouse@12.8.2 "https://livejiaquan.github.io/taiwan-life-data/?county=臺南市&town=安南區"` 補線上量測。 | 驗收的效能數據改以本機正式建置（`vite preview`，gzip）量測，見下方第 2 階段 |
+| 3 | `npx wrangler login`（Cloudflare 帳號） | AQI 與**台電**（不允許跨網域，D18）都只能伺服器端收集；要達到 p95 ≤ 30 分、讓綠電時段快速累積樣本，需要準時排程（Actions 實測間隔中位數 2–5 小時，D2） | 執行 `npx wrangler login`，完成後告訴下一階段 session，由它建立 Workers Cron | 見 #1；電力過 90 分鐘即不顯示目前碳強度 |
+| ~~4~~ | ~~把第 2 階段部署上線~~ | — | **已完成**：使用者 2026-10-16 01:38 執行部署腳本；本 session 02:04、02:11 再部署第 3 階段（gh-pages `ab05502`、`cc55d78`） | — |
 
-## 階段 2 出門前 — 狀態：完成（線上部署待使用者 #4）
+## 階段 3 今天的台灣＋API — 狀態：完成（「每天自動」待使用者 #1）
+
+### 做了什麼
+- **電網碳強度**（新 feed `power`）：台電 d006001（各機組發電，含外購）＋ d006020（負載、備轉、燈號），伺服器端收集（台電不送 CORS 標頭，D18）。能源別加總 → 生命週期與直接排放兩種碳強度、低碳／再生占比；儲能不計入；與負載交叉檢查。
+- **方法公開**：`docs/METHODOLOGY-carbon.md`——公式、機組類型對照、每個係數的原始出處（IPCC 2014 等，依 Electricity Maps `defaults.yaml@d9a920f` 取值）、與能源署官方係數的對照、誤差與限制（D20）。
+- **綠電時段**：由本站存檔最近 14 天的碳強度樣本，找台北時間平均最低的連續 3 小時；樣本不足（< 48 筆或 < 18 個小時）或最新樣本超過 3 天就不推估、照實寫原因。評估過用台電 d006010 季歷史當基準，實測只含台電自有機組（中午太陽能 84 MW）、算出的曲線幾乎全平，不採用（D20）。
+- **水庫**（新 feed `reservoir`）：水利署 45501＋41568（瀏覽器可直接讀），20 座主要水庫蓄水率；未來時間列丟棄、逐座 48 小時 fail-closed、超過 100% 照實呈現（D19）。
+- **「今天的台灣」頁 `/today/`**：碳強度＋能源別占比＋負載／燈號、水庫（北中南）、綠電時段；預先渲染＋hydration、讀取中預留高度；首頁頁尾連結（D23）。
+- **開放 JSON API＋文件**：`docs/API.md`（端點、FeedEnvelope、各 feed 型別、新鮮度門檻與重算程式碼、存檔格式、範例、穩定性承諾）；新增 `data/catalog.json` 機器可讀目錄（D22）。
+- **歷史存檔**：`data` 孤兒分支，每個 feed 每個台北日一檔、同一官方更新只存一次、保留 90 天（更舊的在 git 歷史）、鏡像到網站 `archive/v1/`；`pages.yml` 每次收集後自動 commit，部署腳本也會存檔（D21）。
+- `/status` 自動納入兩個新 feed；說明文字區分「需金鑰」與「不允許跨網域」。
+
+### 驗收證據
+
+| 驗收項 | 結果 | 證據 |
+|---|---|---|
+| 碳強度方法與係數出處寫進 docs | ✅ | `docs/METHODOLOGY-carbon.md`；Codex 從 Electricity Maps 原檔逐項比對 18 項 0 不符；Codex 自寫 Python 從同一份台電即時檔重算 570／473 g/kWh，與本站 parser 相同 |
+| API 文件可用 | ✅ | `docs/API.md`（GitHub 上可讀）；文件中所有網站端點線上 HTTP 200、`access-control-allow-origin: *`（下方輸出）；`data` 分支 raw 鏡像 200 |
+| 存檔每天自動累積 | ⚠️ 機制完成且線上在累積；**排程觸發待使用者 #1** | `data` 分支已有 3 個 commit（初始＋兩次部署自動 commit）；去重實測正確（第二次部署：warnings／heat／rain 判重複，aqi／power／reservoir 新增）；90 天保留、日期歸檔、去重、壞檔不覆蓋都有單元測試。每天自動觸發需要 workflow 推上去（token 缺 `workflow` 權限）；在那之前每次執行部署腳本會累積一次。**未實測跨日累積**（本 session 全部在 10/16 當天） |
+
+本機檢查（2026-10-16 02:1x +08，修正 Codex 發現後）：
+```
+$ npm run lint        → 無錯誤
+$ npm run typecheck   → 無錯誤
+$ npm test
+ Test Files  7 passed (7)
+      Tests  74 passed (74)
+$ npm run build:public
+prerendered index.html / status/index.html / today/index.html
+Public artifacts checked (28 files): no credential markers or key-requiring API URLs.
+```
+
+部署（`./scripts/deploy-gh-pages.sh`）。第一次（02:04）收集輸出：
+```
+power    live        ok=true source=2026-10-15T17:50:00.000Z age=14m bytes=1142
+reservoir live        ok=true source=2026-10-15T17:00:00.000Z age=64m bytes=3426 issues=略過 13 筆觀測時間在未來的資料
+deployed ab05502
+```
+第二次（02:11，修正 Codex 發現後）存檔輸出：
+```
+status: 3 runs, 0 open incidents
+archive warnings  duplicate → 2026-10-16 (1 samples)
+archive aqi       added → 2026-10-16 (2 samples)
+archive power     added → 2026-10-16 (3 samples)
+archive reservoir added → 2026-10-16 (2 samples)
+power-profile: 3 samples; 樣本 3 筆，少於 48 筆
+deployed cc55d78
+$ git log origin/data
+f7786fe 2026-10-16 02:11:43 +0800 Archive 2026-10-15T18:11Z
+daf218a 2026-10-16 02:04:24 +0800 Archive 2026-10-15T18:04Z
+13ef5d1 2026-10-16 02:00:55 +0800 Start the history archive
+```
+
+線上端點（02:0x，`curl`）：
+```
+200 /            200 /today/        200 /status/
+200 /data/catalog.json  200 /data/power.json  200 /data/reservoir.json  200 /data/power-profile.json
+200 /archive/v1/index.json  200 /archive/v1/power/2026-10-16.json
+access-control-allow-origin: *
+raw.githubusercontent.com/livejiaquan/taiwan-life-data/data/v1/index.json → 200
+```
+
+線上 Lighthouse（12.8.2，mobile 模擬降速，02:1x，gh-pages `cc55d78`）：
+```
+page                          a11y perf  LCP_ms  CLS    JS_bytes
+today/                        100  100   1006    0.03   91285
+?county=臺南市&town=安南區      100  100   1003    0.002  94035
+status/                       100  100    842    0.04   89149
+```
+（第一版 /today 線上 CLS 0.548，修正見 D23；第 2 階段要求的首頁 LCP ≤ 1.5 s、首屏 JS ≤ 150 KB、a11y ≥ 95 在加入新頁後仍成立，且這次是**線上**量測。）
+
+線上畫面（headless Chrome 390×844，`/today/`）：碳強度「目前每度電約 568 公克 CO₂e」＋能源別 8 項占比＋負載 27,142 MW／燈號 G；水庫 20 座分北中南、各自資料時間；綠電時段「樣本不足（目前累積 2 筆）」。
+
+獨立複核（Codex，唯讀）：碳強度重算、係數 18 項、5 座水庫蓄水率皆與本站一致；其沙箱無法執行 vitest（暫存目錄 `EPERM`），測試數以本機為準。審查提出 4 個問題，主 session 對照程式碼確認成立並全部修正＋回歸測試（D25）：「目前負載」沒有自己的期限、存檔只用 sourceTime 去重會漏存晚到的水庫、profile 沒有期限、壞掉的日檔會被覆蓋。
+
+### 未完成／已知限制
+- **存檔排程**待 #1；**跨日累積尚未實測**（明天第一次收集會建立 10/17 的檔）。
+- **綠電時段目前顯示「樣本不足」**：需要 48 筆、18 個小時，依現在的收集頻率要一到兩週；#1、#3 完成後會快很多。
+- 台電資料只能伺服器端收集，排程不準時 /today 的碳強度常會是「過舊、不顯示」（誠實但不好用），根治靠 #3。
+- 能源署 114 年度官方係數 0.467 只從新聞與搜尋結果取得（公告頁已開但 PDF 未開），在方法文件標為 🔎。
+- 碳強度與 Electricity Maps 台灣即時值的差距**未比較**（其台灣頁 Cloudflare 擋，競品報告 §4.1 UNVERIFIED）。
+- 實體手機仍未測。
+
+### 下一步（階段 4）
+- MCP server（npm 套件）：直接吃 `data/catalog.json` 與 `docs/API.md` 的契約；README 雙語＋截圖＋架構圖；`/status` 自動事故紀錄延伸到新 feed（已自動納入，事故分類可再細）。
+
+## 階段 2 出門前 — 狀態：完成（使用者已於 2026-10-16 01:38 部署上線）
 
 ### 做了什麼
 - **368 鄉鎮選擇**：從氣象署 M-A0085-001 產生 368 鄉鎮清單（geocode＋中心點）入庫；縣市 → 鄉鎮市區兩層原生選單；`?county=&town=` 可分享、本機記住上次地點、相容第 1 階段 `?county=` 連結（DECISIONS D10）。
