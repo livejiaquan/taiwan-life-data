@@ -9,7 +9,7 @@ export default defineConfig({
   build: {
     target: "es2022",
     rollupOptions: {
-      input: { main: resolve(import.meta.dirname, "index.html"), status: resolve(import.meta.dirname, "status/index.html") },
+      input: { main: resolve(import.meta.dirname, "index.html"), status: resolve(import.meta.dirname, "status/index.html"), today: resolve(import.meta.dirname, "today/index.html") },
     },
   },
 });

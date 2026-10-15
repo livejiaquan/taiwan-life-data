@@ -10,7 +10,7 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { currentStatus, dataAgeMinutes, FEEDS, isStatusDoc, updateStatus, type FeedEnvelope, type FeedId, type RunResult, type StatusDoc } from "@taiwan-life-data/contract";
-import { createJsonFetcher, parseFeedEnvelope } from "../src/index";
+import { BROWSER_FETCHABLE, createJsonFetcher, parseFeedEnvelope } from "../src/index";
 import { collectAny } from "../src/server";
 
 const OUT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../../apps/web/public/data");
@@ -72,6 +72,26 @@ const main = async () => {
   await writeAtomic(
     join(OUT_DIR, "index.json"),
     JSON.stringify({ schemaVersion: 1, generatedAt: doc.generatedAt, feeds: results.map(({ feed, status, sourceTime, ageMinutes }) => ({ feed, status, sourceTime, ageMinutes })) }),
+  );
+  // Machine-readable directory of the public API (docs/API.md).
+  await writeAtomic(
+    join(OUT_DIR, "catalog.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      generatedAt: doc.generatedAt,
+      docs: "https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/API.md",
+      license: "資料：各機關依政府資料開放授權條款－第1版；程式：MIT",
+      feeds: FEED_IDS.map((feed) => ({
+        id: feed,
+        label: FEEDS[feed].label,
+        snapshot: `data/${feed}.json`,
+        archive: `archive/v1/${feed}/{YYYY-MM-DD}.json`,
+        source: FEEDS[feed].source,
+        freshness: FEEDS[feed].freshness,
+        browserReadable: BROWSER_FETCHABLE.includes(feed),
+      })),
+      extras: { index: "data/index.json", status: "data/status.json", powerProfile: "data/power-profile.json", archiveIndex: "archive/v1/index.json" },
+    }),
   );
   console.log(`status: ${doc.runs.length} runs, ${doc.incidents.filter((i) => !i.endedAt).length} open incidents`);
   if (results.every((r) => !r.attemptOk)) {

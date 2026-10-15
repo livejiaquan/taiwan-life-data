@@ -3,7 +3,7 @@ import { parseOfficialTime } from "./time";
 export const FEED_STATUSES = ["live", "delayed", "stale", "unavailable"] as const;
 export type FeedStatus = (typeof FEED_STATUSES)[number];
 
-export type FeedId = "warnings" | "uv" | "heat" | "aqi" | "rain";
+export type FeedId = "warnings" | "uv" | "heat" | "aqi" | "rain" | "power" | "reservoir";
 
 export interface FeedSource {
   /** Agency, e.g. 交通部中央氣象署 */
@@ -42,6 +42,8 @@ export interface FeedDefinition {
 
 const CWA_LICENSE = "政府資料開放授權條款－第1版";
 const MOENV_LICENSE = "政府資料開放授權條款－第1版";
+const TAIPOWER_LICENSE = "政府資料開放授權條款－第1版";
+const WRA_LICENSE = "政府資料開放授權條款－第1版";
 
 export const FEEDS: Record<FeedId, FeedDefinition> = {
   warnings: {
@@ -104,6 +106,32 @@ export const FEEDS: Record<FeedId, FeedDefinition> = {
     },
     // Basis is IssueTime; issued 4 times a day and published ~75 min later (docs/DECISIONS.md D11).
     freshness: { basis: "sourceTime", liveForMinutes: 450, delayedForMinutes: 810, cadence: "每 6 小時" },
+  },
+  power: {
+    id: "power",
+    label: "電網碳強度",
+    source: {
+      agency: "台灣電力公司",
+      title: "台灣電力公司各機組發電量即時資訊(含外購電力)（負載另讀「今日系統供需狀況」data.gov.tw 162595）",
+      datasetId: "d006001",
+      url: "https://data.gov.tw/dataset/8931",
+      license: TAIPOWER_LICENSE,
+    },
+    // Taipower refreshes every 10 minutes (docs/DECISIONS.md D18).
+    freshness: { basis: "sourceTime", liveForMinutes: 30, delayedForMinutes: 90, cadence: "每 10 分鐘" },
+  },
+  reservoir: {
+    id: "reservoir",
+    label: "水庫蓄水",
+    source: {
+      agency: "經濟部水利署",
+      title: "水庫水情資料（有效容量另讀「水庫每日營運狀況」data.gov.tw 41568）",
+      datasetId: "45501",
+      url: "https://data.gov.tw/dataset/45501",
+      license: WRA_LICENSE,
+    },
+    // Hourly for most reservoirs; some report once a day (docs/DECISIONS.md D19).
+    freshness: { basis: "sourceTime", liveForMinutes: 180, delayedForMinutes: 720, cadence: "每小時（部分水庫每日一次）" },
   },
 };
 

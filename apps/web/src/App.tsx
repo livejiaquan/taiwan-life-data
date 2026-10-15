@@ -8,10 +8,11 @@ import { ShareBar } from "./ShareBar";
 import type { ShareItem } from "./share";
 
 /** Order of the 出門前 card (PLAN): warnings → heat / UV → air quality → rain. */
-export const ORDER: FeedId[] = ["warnings", "heat", "uv", "aqi", "rain"];
+type CardFeed = "warnings" | "heat" | "uv" | "aqi" | "rain";
+export const ORDER: CardFeed[] = ["warnings", "heat", "uv", "aqi", "rain"];
 
 const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
-const SHORT_LABEL: Record<FeedId, string> = { warnings: "警特報", heat: "熱傷害", uv: "紫外線", aqi: "空品", rain: "降雨" };
+const SHORT_LABEL: Record<CardFeed, string> = { warnings: "警特報", heat: "熱傷害", uv: "紫外線", aqi: "空品", rain: "降雨" };
 
 type AnyEnvelope = FeedEnvelope<unknown>;
 /** undefined = still loading, null = failed. */
@@ -25,7 +26,7 @@ const officialKey = (feed: FeedId, county: string) => (feed === "rain" ? `rain:$
 const covers = (feed: FeedId, envelope: AnyEnvelope | null | undefined, town: Town) =>
   !!envelope?.data && (feed !== "rain" || (envelope.data as FeedDataMap["rain"]).towns.some((t) => t.geocode === town.geocode));
 
-const assess = (feed: FeedId, data: unknown, town: Town, now: number): Verdict => {
+const assess = (feed: CardFeed, data: unknown, town: Town, now: number): Verdict => {
   switch (feed) {
     case "warnings": return assessWarnings(data as FeedDataMap["warnings"], town, now);
     case "heat": return assessHeat(data as FeedDataMap["heat"], town, now);
@@ -41,7 +42,7 @@ const FAIL_CLOSED: Record<"stale" | "unavailable", (feed: FeedId) => string> = {
 };
 
 interface FeedView {
-  feed: FeedId;
+  feed: CardFeed;
   pending: boolean;
   refreshing: boolean;
   envelope: AnyEnvelope | null;
@@ -229,7 +230,7 @@ export function App() {
       <footer className="footer">
         <p>資料來源：交通部中央氣象署、環境部開放資料（政府資料開放授權條款－第1版）。資料過舊或讀不到時一律不下結論。</p>
         <p>
-          <a href={`${import.meta.env.BASE_URL}status/`}>資料狀態與事故紀錄</a>・<a href="https://github.com/livejiaquan/taiwan-life-data">GitHub 原始碼（MIT）</a>
+          <a href={`${import.meta.env.BASE_URL}today/`}>今天的台灣（電網碳強度、水庫）</a>・<a href={`${import.meta.env.BASE_URL}status/`}>資料狀態與事故紀錄</a>・<a href="https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/API.md">開放 JSON API</a>・<a href="https://github.com/livejiaquan/taiwan-life-data">GitHub 原始碼（MIT）</a>
         </p>
       </footer>
     </main>

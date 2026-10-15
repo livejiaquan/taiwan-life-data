@@ -90,7 +90,7 @@ export function StatusApp() {
                   <dt>最近成功收集</dt><dd>{formatTaipei(health?.lastSuccessAt)}</dd>
                   <dt>最近一次嘗試</dt><dd>{health ? `${formatTaipei(health.lastAttemptAt)}・${health.lastAttemptOk ? "成功" : `失敗：${health.lastError ?? ""}`}` : "—"}</dd>
                   <dt>判定門檻</dt><dd>即時 ≤ {minutes(def.freshness.liveForMinutes)}；延遲 ≤ {minutes(def.freshness.delayedForMinutes)}（依{def.freshness.basis === "sourceTime" ? "官方資料時間" : "最近成功讀取時間"}）</dd>
-                  <dt>官方更新</dt><dd>{def.freshness.cadence}{BROWSER_FETCHABLE.includes(feed) ? "；快照不夠新時首頁直接讀官方檔" : "；需金鑰，只能由伺服器端收集"}</dd>
+                  <dt>官方更新</dt><dd>{def.freshness.cadence}{BROWSER_FETCHABLE.includes(feed) ? "；快照不夠新時頁面直接讀官方檔" : feed === "power" ? "；台電檔案不允許跨網域讀取，只能由伺服器端收集" : "；需金鑰，只能由伺服器端收集"}</dd>
                   {fs && fs.n > 0 && (
                     <>
                       <dt>收集時資料年齡</dt>
@@ -115,7 +115,7 @@ export function StatusApp() {
           </p>
         )}
         <p className="muted">
-          目前由 GitHub Actions 排程收集，實測間隔常達數小時（見 DECISIONS D2），因此氣象署的資料由首頁直接讀官方檔補足新鮮度；空品需金鑰，只能等收集。
+          目前由 GitHub Actions 排程收集，實測間隔常達數小時（見 DECISIONS D2），因此氣象署與水利署的資料由頁面直接讀官方檔補足新鮮度；空品（需金鑰）與台電（不允許跨網域）只能等收集。
         </p>
       </section>
 

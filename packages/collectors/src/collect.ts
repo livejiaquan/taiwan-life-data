@@ -2,7 +2,9 @@ import { createEnvelope, type FeedEnvelope, type FeedId } from "@taiwan-life-dat
 import type { AqiData } from "./aqi";
 import type { JsonFetcher } from "./fetch";
 import { parseHeat, trimHeat, type HeatData } from "./heat";
+import { combinePower, parseGeneration, parseSupply, TAIPOWER_FILES, type PowerData } from "./power";
 import { mergeRain, RAIN_COUNTIES, RAIN_FILE_CODES, trimRain, parseRainCounty, type RainData } from "./rain";
+import { newestReservoirObservation, parseReservoirs, WRA_FILES, type ReservoirData } from "./reservoir";
 import { CWA_FILES, cwaRainFile } from "./sources";
 import { newestObservation, parseUvObservations, type UvData } from "./uv";
 import { parseWarnings, type WarningsData } from "./warnings";
@@ -13,6 +15,8 @@ export interface FeedDataMap {
   heat: HeatData;
   aqi: AqiData;
   rain: RainData;
+  power: PowerData;
+  reservoir: ReservoirData;
 }
 
 export interface CollectContext {
@@ -24,7 +28,9 @@ export interface CollectContext {
 }
 
 /** Feeds a browser may fetch itself: keyless and CORS-enabled (docs/DECISIONS.md). */
-export type BrowserFeedId = "warnings" | "uv" | "heat" | "rain";
+export type BrowserFeedId = "warnings" | "uv" | "heat" | "rain" | "reservoir";
+/** Keyless feeds; power is keyless but Taipower sends no CORS headers, so only the collect step reads it. */
+export type KeylessFeedId = BrowserFeedId | "power";
 
 function safeMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -32,9 +38,9 @@ function safeMessage(error: unknown): string {
   return /https?:/i.test(message) ? "讀取或驗證失敗" : message;
 }
 
-type Result<K extends BrowserFeedId> = { sourceTime: string | null; data: FeedDataMap[K]; issues?: string[] };
+type Result<K extends KeylessFeedId> = { sourceTime: string | null; data: FeedDataMap[K]; issues?: string[] };
 
-const collectors: { [K in BrowserFeedId]: (ctx: CollectContext) => Promise<Result<K>> } = {
+const collectors: { [K in KeylessFeedId]: (ctx: CollectContext) => Promise<Result<K>> } = {
   warnings: async (ctx) => {
     const data = parseWarnings(await ctx.fetchJson(CWA_FILES.warnings));
     return { sourceTime: data.sent, data };
@@ -60,13 +66,30 @@ const collectors: { [K in BrowserFeedId]: (ctx: CollectContext) => Promise<Resul
     const data = trimRain(mergeRain(parts), ctx.now());
     return { sourceTime: data.issuedAt, data, issues };
   },
+  reservoir: async (ctx) => {
+    const [realtime, daily] = await Promise.all([ctx.fetchJson(WRA_FILES.realtime), ctx.fetchJson(WRA_FILES.daily)]);
+    const { data, issues } = parseReservoirs(realtime, daily, ctx.now());
+    return { sourceTime: newestReservoirObservation(data), data, issues };
+  },
+  power: async (ctx) => {
+    const generation = parseGeneration(await ctx.fetchJson(TAIPOWER_FILES.generation), ctx.now());
+    let load = null;
+    const issues: string[] = [];
+    try {
+      load = parseSupply(await ctx.fetchJson(TAIPOWER_FILES.supply), ctx.now());
+    } catch (error) {
+      issues.push(`今日系統供需狀況：${safeMessage(error)}`);
+    }
+    const combined = combinePower(generation, load);
+    return { sourceTime: combined.data.observedAt, data: combined.data, issues: [...issues, ...combined.issues] };
+  },
 };
 
-export const BROWSER_FETCHABLE: readonly FeedId[] = ["warnings", "uv", "heat", "rain"] satisfies BrowserFeedId[];
+export const BROWSER_FETCHABLE: readonly FeedId[] = ["warnings", "uv", "heat", "rain", "reservoir"] satisfies BrowserFeedId[];
 
 
 /** Collects one feed. Never throws: failures become an "unavailable" envelope. */
-export const collectFeed = async <K extends BrowserFeedId>(feed: K, ctx: CollectContext): Promise<FeedEnvelope<FeedDataMap[K]>> => {
+export const collectFeed = async <K extends KeylessFeedId>(feed: K, ctx: CollectContext): Promise<FeedEnvelope<FeedDataMap[K]>> => {
   try {
     const result = await (collectors[feed] as (c: CollectContext) => Promise<Result<K>>)(ctx);
     return createEnvelope(feed, { ...result, via: ctx.via }, ctx.now());

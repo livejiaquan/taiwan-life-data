@@ -7,9 +7,9 @@ import { join } from "node:path";
 
 const dist = new URL("../dist/", import.meta.url).pathname;
 const ssr = new URL("../dist-ssr/entry-server.js", import.meta.url).href;
-const { render } = (await import(ssr)) as { render: (page: "home" | "status") => string };
+const { render } = (await import(ssr)) as { render: (page: "home" | "status" | "today") => string };
 
-for (const [page, file] of [["home", "index.html"], ["status", "status/index.html"]] as const) {
+for (const [page, file] of [["home", "index.html"], ["status", "status/index.html"], ["today", "today/index.html"]] as const) {
   const path = join(dist, file);
   let html = await readFile(path, "utf8");
   if (!html.includes("<!--app-->")) throw new Error(`${file}: missing <!--app--> placeholder`);
