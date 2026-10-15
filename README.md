@@ -41,34 +41,32 @@ curl -s https://livejiaquan.github.io/taiwan-life-data/archive/v1/index.json  # 
 ## 架構
 
 ```mermaid
-flowchart LR
-  subgraph 官方開放資料
-    CWA[交通部中央氣象署<br/>警特報・觀測・熱傷害・鄉鎮預報]
+flowchart TB
+  subgraph official["官方開放資料"]
+    direction LR
+    CWA[中央氣象署<br/>警特報・觀測・熱傷害・鄉鎮預報]
     MOENV[環境部<br/>AQI]
     TPC[台灣電力公司<br/>機組發電・供需]
-    WRA[經濟部水利署<br/>水庫水情]
+    WRA[水利署<br/>水庫水情]
   end
 
   subgraph repo["monorepo（TypeScript）"]
-    contract[packages/contract<br/>資料契約・新鮮度判定・事故]
-    collectors[packages/collectors<br/>解析＋驗證]
-    assess[packages/assess<br/>出門前／今天的台灣 判讀]
-    web[apps/web<br/>Vite + React，預先渲染]
-    mcp[packages/mcp-server<br/>npm: taiwan-life-data-mcp]
+    direction LR
+    contract[packages/contract<br/>資料契約・新鮮度・事故] --> collectors[packages/collectors<br/>解析＋驗證] --> assess[packages/assess<br/>判讀]
+    assess --> web[apps/web<br/>Vite + React]
+    assess --> mcp[packages/mcp-server<br/>npm: taiwan-life-data-mcp]
   end
 
-  CWA & MOENV & TPC & WRA --> collect[收集<br/>GitHub Actions／部署腳本]
-  collect --> collectors
-  collect --> snap[(gh-pages<br/>/data/*.json<br/>status.json・incidents.xml)]
-  collect --> archive[(data 分支<br/>v1/feed/日期.json<br/>90 天)]
+  official --> collect[收集＋驗證<br/>GitHub Actions／部署腳本]
+  collect --> snap[(gh-pages /data<br/>快照・status.json・incidents.xml)]
+  collect --> archive[(data 分支<br/>每 feed 每天一檔・90 天)]
   archive --> snap
   snap --> browser[瀏覽器]
-  CWA & WRA -. 快照不夠新時直接讀<br/>免金鑰＋CORS .-> browser
-  snap --> mcpclient[Claude 等 MCP client]
-  CWA & MOENV & TPC & WRA -. 快照不夠新時<br/>本機直接讀 .-> mcpclient
-  contract --- collectors --- assess
-  assess --- web
-  assess --- mcp
+  snap --> client[Claude 等 MCP client]
+  official -. 快照不夠新時直接讀 .-> browser
+  official -. 快照不夠新時本機直接讀 .-> client
+  web --> browser
+  mcp --> client
 ```
 
 - **一個資料契約**：每個 feed 都有 `sourceTime`／`retrievedAt`／`status`／`source`；狀態一律在顯示當下依資料年齡重算，過舊不下結論。

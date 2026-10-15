@@ -41,8 +41,9 @@ Every file uses one envelope: `sourceTime` (official data time), `retrievedAt`, 
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph official["Official open data"]
+    direction LR
     CWA[Central Weather Administration<br/>warnings, observations, heat, forecasts]
     MOENV[Ministry of Environment<br/>AQI]
     TPC[Taipower<br/>unit generation, supply]
@@ -50,25 +51,22 @@ flowchart LR
   end
 
   subgraph repo["TypeScript monorepo"]
-    contract[packages/contract<br/>data contract, freshness, incidents]
-    collectors[packages/collectors<br/>parsing + validation]
-    assess[packages/assess<br/>verdicts shared by site and MCP]
-    web[apps/web<br/>Vite + React, prerendered]
-    mcp[packages/mcp-server<br/>npm: taiwan-life-data-mcp]
+    direction LR
+    contract[packages/contract<br/>data contract, freshness, incidents] --> collectors[packages/collectors<br/>parsing + validation] --> assess[packages/assess<br/>verdicts]
+    assess --> web[apps/web<br/>Vite + React]
+    assess --> mcp[packages/mcp-server<br/>npm: taiwan-life-data-mcp]
   end
 
-  CWA & MOENV & TPC & WRA --> collect[collect<br/>GitHub Actions / deploy script]
-  collect --> collectors
-  collect --> snap[(gh-pages<br/>/data/*.json<br/>status.json, incidents.xml)]
-  collect --> archive[(data branch<br/>v1/feed/date.json<br/>90 days)]
+  official --> collect[collect + validate<br/>GitHub Actions / deploy script]
+  collect --> snap[(gh-pages /data<br/>snapshots, status.json, incidents.xml)]
+  collect --> archive[(data branch<br/>one file per feed per day, 90 days)]
   archive --> snap
   snap --> browser[Browser]
-  CWA & WRA -. read directly when the snapshot is old<br/>keyless + CORS .-> browser
-  snap --> mcpclient[Claude / MCP clients]
-  CWA & MOENV & TPC & WRA -. read directly when the snapshot is old .-> mcpclient
-  contract --- collectors --- assess
-  assess --- web
-  assess --- mcp
+  snap --> client[Claude / MCP clients]
+  official -. read directly when the snapshot is old .-> browser
+  official -. read directly when the snapshot is old .-> client
+  web --> browser
+  mcp --> client
 ```
 
 - **One data contract**: every feed has `sourceTime` / `retrievedAt` / `status` / `source`; status is always recomputed from data age at display time.
