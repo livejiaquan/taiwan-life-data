@@ -191,7 +191,7 @@ export const isIncidentLog = (v: unknown): v is IncidentLog =>
 /**
  * Merges the incidents of the current status.json into the long-term log. The
  * status version wins for the same key (an open incident gets closed); incidents
- * that started more than `retentionDays` ago are dropped unless still open. Pure.
+ * that ended more than `retentionDays` ago are dropped; open ones are always kept. Pure.
  */
 export const mergeIncidentLog = (prev: IncidentLog | null, current: Incident[], now: number, retentionDays = 90): IncidentLog => {
   const byKey = new Map<string, Incident>();
@@ -202,7 +202,7 @@ export const mergeIncidentLog = (prev: IncidentLog | null, current: Incident[], 
     schemaVersion: 1,
     updatedAt: new Date(now).toISOString(),
     retentionDays,
-    incidents: [...byKey.values()].filter((i) => i.endedAt === null || Date.parse(i.startedAt) >= cutoff).sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+    incidents: [...byKey.values()].filter((i) => i.endedAt === null || Date.parse(i.endedAt) >= cutoff).sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
   };
 };
 

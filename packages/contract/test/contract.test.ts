@@ -174,6 +174,9 @@ describe("status history", () => {
     expect(mergeIncidentLog(log2, [], now).incidents).toEqual([closed]);
     expect(isIncidentLog(JSON.parse(JSON.stringify(log2)))).toBe(true);
     expect(incidentKey(closed)).toBe("uv/stale/2026-10-15T00:00:00.000Z");
+    // A long incident is kept by when it ended, not when it started.
+    const long = { feed: "power" as const, kind: "stale" as const, startedAt: "2026-06-01T00:00:00.000Z", endedAt: "2026-10-15T00:00:00.000Z", detail: "long" };
+    expect(mergeIncidentLog(null, [long], now).incidents).toEqual([long]);
   });
 
   it("publishes incidents as an escaped Atom feed", () => {

@@ -3,6 +3,7 @@ import { isArchiveDay, rainDatasetId, type PowerData } from "@taiwan-life-data/c
 import {
   COUNTIES,
   computeStatus,
+  currentStatus,
   dataAgeMinutes,
   FEEDS,
   findTown,
@@ -52,6 +53,9 @@ export const resolveTown = (countyInput: string | undefined, townInput: string):
   throw new InputError(`找不到鄉鎮市區「${townName}」。可先用 list_towns 查詢。`);
 };
 
+/** A read can cross a freshness threshold while other reads are still pending: grade again at the time of the answer. */
+const regrade = <K extends FeedId>(read: FeedRead<K>, now: number): FeedRead<K> => ({ ...read, status: read.envelope ? currentStatus(read.envelope, now) : "unavailable" });
+
 const dataTime = (feed: FeedId, envelope: FeedEnvelope<unknown>) => (FEEDS[feed].freshness.basis === "retrievedAt" ? envelope.retrievedAt : envelope.sourceTime);
 
 const provenance = (feed: FeedId, read: FeedRead<FeedId>, now: number, town?: Town): string => {
@@ -74,7 +78,7 @@ export const outdoorBrief = async (src: DataSource, county: string | undefined, 
   const reads = await Promise.all(ORDER.map((feed) => src.feed(feed, place)));
   const now = src.now();
   const items = ORDER.map((feed, i) => {
-    const read = reads[i]!;
+    const read = regrade(reads[i]!, now);
     const verdict = read.envelope && (read.status === "live" || read.status === "delayed") ? assessCard(feed, read.envelope.data, place, now) : null;
     return { feed, read, verdict };
   });
@@ -105,8 +109,9 @@ export const listTowns = (county: string | undefined): string => {
 };
 
 export const gridCarbon = async (src: DataSource): Promise<string> => {
-  const [read, profile] = await Promise.all([src.feed("power"), src.powerProfile()]);
+  const [raw, profile] = await Promise.all([src.feed("power"), src.powerProfile()]);
   const now = src.now();
+  const read = regrade(raw, now);
   const out = [header("台灣電網碳強度", now), ""];
   const data = read.envelope?.data as PowerData | undefined;
   out.push(`狀態：${STATUS_TEXT[read.status]}`);
@@ -129,8 +134,9 @@ export const gridCarbon = async (src: DataSource): Promise<string> => {
 };
 
 export const reservoirs = async (src: DataSource, query: string | undefined): Promise<string> => {
-  const read = await src.feed("reservoir");
+  const raw = await src.feed("reservoir");
   const now = src.now();
+  const read = regrade(raw, now);
   const out = [header("主要水庫蓄水", now), `狀態：${STATUS_TEXT[read.status]}`];
   const data = read.envelope?.data;
   if (!data || (read.status !== "live" && read.status !== "delayed")) {

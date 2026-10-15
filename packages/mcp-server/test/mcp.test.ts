@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { newestObservation, newestPublishTime, parseAqi, parseHeat, parseUvObservations, parseWarnings, type JsonFetcher } from "@taiwan-life-data/collectors";
 import type { collectAny } from "@taiwan-life-data/collectors/server";
 import { createEnvelope, updateStatus, type FeedEnvelope, type FeedId } from "@taiwan-life-data/contract";
+import { pickBest } from "@taiwan-life-data/assess";
 import { createDataSource } from "../src/data";
 import { createServer } from "../src/server";
 import { dataStatus, outdoorBrief, resolveTown } from "../src/tools";
@@ -105,6 +106,47 @@ describe("outdoor_brief", () => {
     expect(text).toMatch(/總結：.*熱傷害、降雨無法判斷/);
     expect(text).toContain("資料時間 10/16 00:00・資料年齡 20 分・本站快照・來源：環境部 AQX_P_432");
     expect(text).toContain(`${SITE}?county=%E8%87%BA%E5%8C%97%E5%B8%82&town=%E4%BF%A1%E7%BE%A9%E5%8D%80`);
+  });
+});
+
+describe("Codex review regressions", () => {
+  it("grades again at answer time when a slow read pushes another feed past its threshold", async () => {
+    let clock = NOW;
+    const snaps = snapshots();
+    // Warnings read 50 min ago: delayed now (limit 60), stale 15 min later.
+    snaps.warnings = createEnvelope("warnings", { sourceTime: warnings.sent, data: warnings }, NOW - 50 * 60_000);
+    const files = filesOf(snaps);
+    const fetchJson = (_label: string): JsonFetcher => async (url) => {
+      const path = url.replace(SITE, "");
+      if (path === "data/rain.json") {
+        await new Promise((r) => setTimeout(r, 10));
+        clock += 15 * 60_000;
+        throw new Error("HTTP 404");
+      }
+      if (!(path in files)) throw new Error(`HTTP 404 ${path}`);
+      return structuredClone(files[path]);
+    };
+    const src = createDataSource({ siteUrl: SITE, now: () => clock, fetchJson, direct: false });
+    const text = await outdoorBrief(src, "臺北市", "信義區");
+    expect(text).toMatch(/## 天氣警特報【過舊】\n資料過舊，不做判斷。/);
+    expect(text).not.toContain("目前沒有生效中的天氣警特報");
+  });
+
+  it("does not cache a failed official read", async () => {
+    const fresh = createEnvelope("aqi", { sourceTime: newestPublishTime(aqi), data: aqi }, NOW);
+    let calls = 0;
+    const collect = (() => Promise.resolve(++calls === 1 ? createEnvelope("aqi", { sourceTime: null, data: null, issues: ["連線失敗"] }, NOW) : fresh)) as unknown as typeof collectAny;
+    const src = createDataSource({ siteUrl: SITE, now: () => NOW, fetchJson: siteFetcher({}), collect });
+    expect(await src.feed("aqi")).toMatchObject({ status: "unavailable" });
+    expect(await src.feed("aqi")).toMatchObject({ status: "live", via: "official" });
+    expect(calls).toBe(2);
+  });
+
+  it("prefers the more recently read warnings envelope when both have the same status", async () => {
+    const older = createEnvelope("warnings", { sourceTime: warnings.sent, data: warnings }, NOW - 20 * 60_000);
+    const newer = createEnvelope("warnings", { sourceTime: warnings.sent, data: warnings }, NOW - 16 * 60_000);
+    expect(pickBest([older, newer], NOW)!.envelope).toBe(newer);
+    expect(pickBest([newer, older], NOW)!.envelope).toBe(newer);
   });
 });
 

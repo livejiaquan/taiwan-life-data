@@ -77,7 +77,7 @@ export const createDataSource = (options: SourceOptions = {}): DataSource => {
       }
     });
 
-  const official = <K extends FeedId>(feed: K, county: string | undefined): Promise<FeedEnvelope<FeedDataMap[K]> | null> =>
+  const official = <K extends FeedId>(feed: K, county: string | undefined): Promise<FeedEnvelope<FeedDataMap[K]>> =>
     cached(`official:${feed}:${feed === "rain" ? county : ""}`, async () => {
       const envelope = await collect(feed, {
         fetchJson: fetcher(FEEDS[feed].source.datasetId),
@@ -85,7 +85,9 @@ export const createDataSource = (options: SourceOptions = {}): DataSource => {
         moenvApiKey: options.moenvApiKey,
         counties: feed === "rain" && county ? [county] : undefined,
       });
-      return envelope.data === null ? null : envelope;
+      // Reject rather than resolve null, so a failed read is not cached.
+      if (envelope.data === null) throw new Error(envelope.issues.join("；") || "unavailable");
+      return envelope;
     });
 
   return {

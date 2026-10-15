@@ -238,3 +238,54 @@ Codex 從同一份即時官方檔獨立重算，結果與本站一致：碳強�
 | 存檔只用 `sourceTime` 去重 | 晚到的水庫更新了，但全體最新時間沒變 → 新資料沒存 | 同 `sourceTime` 且內容完全相同才算重複 |
 | 綠電時段 profile 沒有期限 | 收集停了幾天，舊 profile 仍標「最近 14 天」並拿來比較 | 最新樣本超過 3 天就不使用，改顯示原因 |
 | 既有日檔壞掉會被覆蓋 | 讀檔或 JSON 解析失敗被當成「沒有檔案」，寫回只有一筆的新檔 | 只有「檔案不存在」才當新檔；其他錯誤讓存檔步驟失敗 |
+
+## D26. 判讀邏輯抽成 `packages/assess`（第 4 階段）
+
+- **背景**：MCP server 要回答「出門前」與「今天的台灣」，判讀邏輯原本在 `apps/web/src/assess.ts`、`today/today.ts`、`load.ts`（`pickBest`）與 `App.tsx`（卡片順序、fail-closed 文字）。PLAN：「不要重寫已經測過的邏輯」。
+- **決定**：用 `git mv` 把這些純函式搬到新 workspace `packages/assess`（`assess.ts`、`today.ts`、`pick.ts`、`card.ts`），網站與 MCP 都從這裡 import。行為不變：搬移後原有 74 個測試照過，`today.test.ts` 隨檔案搬到 `packages/assess/test/`。
+- **取捨**：多一個套件；換來同一筆資料在網站與 MCP 一定得到同一個結論（例如 AQI 普通在兩邊都「不點名」）。
+
+## D27. MCP server：讀資料的順序、輸出形式、打包
+
+- **讀資料順序**（`packages/mcp-server/src/data.ts`）：先讀網站快照，依「現在」重算狀態；不是即時（或雨量快照沒涵蓋該縣市）就在使用者電腦上**直接讀官方資料**，用的是和收集器同一份 parser 與驗證（`collectAny`）。兩者用 `pickBest` 取現在狀態較好的。本機沒有 CORS 限制，所以 AQI 與台電也能直接讀——這讓 MCP 不受 Actions 排程不準的影響（D2）。AQI 直接讀時用環境部刊登在 data.gov.tw 的公開下載連結（D3），使用者可設自己的 `MOENV_API_KEY`，金鑰只留在本機。可用 `TAIWAN_LIFE_DATA_DIRECT=0` 關掉直接讀。
+- **不做的事**：沒有鄉鎮時不讀雨量（會是 22 個約 1 MB 的檔）；失敗的讀取不快取（快取 2 分鐘只為了同一段對話不重抓）。
+- **輸出**：每個工具回傳繁中純文字（markdown），每項都有狀態、資料時間、資料年齡、取得方式、官方資料集；過舊／無法取得時用與網站相同的 fail-closed 句子，不出現任何數值。沒有用 `structuredContent`／`outputSchema`：資料本身已有開放 JSON API，工具的價值在「判讀＋出處」，純文字對模型最不容易誤讀。輸入錯誤（找不到鄉鎮、名稱重複）回 `isError` 並列出可選項，讓模型自己修正。
+- **工具**：`outdoor_brief`、`list_towns`、`grid_carbon`、`reservoirs`、`data_status`、`history`，全部標 `readOnlyHint`。鄉鎮可省略縣市（全台唯一時）、接受台／臺與省略「區鄉鎮市」。
+- **打包**：esbuild 把 SDK、zod 與 workspace 套件打成單一 `dist/index.js`（523 KB，壓縮後 tarball 157 KB），套件**沒有執行期依賴**，`npx` 啟動快、不受相依套件版本漂移影響。套件名 `taiwan-life-data-mcp`（2026-10-16 查 npm 尚未被使用）。
+- **版本**：`@modelcontextprotocol/sdk` 1.32.1。
+
+## D28. npm 發佈：未登入時改用 GitHub Release tarball
+
+- **背景**：PLAN 要求「npm 可安裝」。本機 `npm whoami` 失敗（未登入），發佈需要使用者的 npm 帳號（PROGRESS「需要使用者」#5）。
+- **決定**：先把 `npm pack` 的同一份 tarball 掛在 GitHub Release `mcp-v0.1.0`，安裝指令 `npx -y --package=<release tarball URL> taiwan-life-data-mcp`——這仍是 npm 安裝（npm 支援 tarball URL），使用者登入後 `npm publish` 即可改成 `npx -y taiwan-life-data-mcp`，內容不變。README 兩種指令都列。
+- **實測踩到的坑**：`npx -y <tarball 路徑>` 會被當成要執行該檔（`Permission denied`），Claude Code 顯示 MCP 連線失敗；必須用 `--package=<tarball> <bin 名稱>`。
+
+## D29. `/status` 自動事故紀錄延伸
+
+- **新增「收集中斷」**（`collect-gap`，範圍 `collector`）：兩次收集相隔超過 60 分鐘（排程目標每 15 分）。收集器停擺時無法記錄自己，所以檔案裡只會在下一次收集到來時補記一筆已結束的中斷；**進行中的中斷由讀取端計算**（`openCollectGap`，`/status` 頁與 MCP 共用）。依 D2 的實測，Actions 排程上線後這類事故會很多——這是實情，照實記錄，也是 Workers Cron（PROGRESS #3）的量化理由。
+- **事故內容**：加 `lastSeenAt`、`runs`、`worstAgeMinutes`（選填，舊的 `status.json` 仍可讀）；驗證改為逐欄檢查（未知的 kind 或 feed 會被拒絕）。
+- **公開管道**：`data/incidents.xml`（Atom，最近 50 件，id 用 `${feed}/${kind}/${startedAt}`）、`archive/v1/incidents.json`（長期紀錄，`status.json` 只留 100 件；保留 90 天、進行中永遠保留；壞檔停止存檔，不覆蓋）。
+- **不做**：「部分失敗」（例如 22 個雨量檔中 1 個失敗）目前只寫在 feed 的 `issues`，不另立事故——判定規則需要逐 feed 設計，等累積實際資料再決定。
+
+## D30. README：兩個檔案、真實截圖、mermaid 架構圖
+
+- **雙語**：`README.md`（繁中，預設）＋ `README.en.md`，頂端互相連結。一個檔案放兩種語言會讓每一節長一倍、兩邊容易不同步；分檔後各自完整。
+- **截圖**：線上網站實際畫面（`docs/screenshots/`）。用 headless Chrome `--window-size=390,…` 擷取時，新版 headless 視窗有最小寬度，實際排版比 390 px 寬、右側被裁掉——改用 DevTools Protocol 的裝置模擬（390×844、DPR 2、mobile）擷取全頁，`scrollWidth=390` 確認沒有橫向溢出。
+- **架構圖**：mermaid（GitHub 直接渲染、跟著程式碼改），不放圖片檔。
+
+## D31. Commit 仍不加 AI 協作標記
+
+- 本階段 Claude Code 的預設提示要求在 commit 結尾加 `Co-Authored-By`；PLAN 技術約束與 D9 明確禁止，以使用者的 PLAN 為準，不加。
+
+## D32. Codex 獨立複核（第 4 階段）
+
+Codex（唯讀沙箱）審查 `9e6fc85..c3d6e32`，用記憶體內腳本實際重現。主 session 逐一對照程式碼確認成立並修正，每項都有回歸測試（修正前 4 個測試失敗、修正後通過）：
+
+| 問題 | 情境 | 修正 |
+|---|---|---|
+| MCP 判讀用的是讀取當下的狀態 | 警特報讀到時是「延遲」，等其他較慢的來源時超過 60 分鐘，仍回答「目前沒有警特報」 | 所有讀取完成後，用回答當下的時間重新判定（`regrade`）；`grid_carbon`、`reservoirs` 同樣處理 |
+| 官方讀取失敗被快取 2 分鐘 | collector 失敗是「成功回傳 unavailable」，快取只清掉 rejected 的 Promise | 失敗改為 reject，不進快取 |
+| `pickBest` 平手時只比 `sourceTime`（第 2 階段既有） | 警特報快照與官方檔 `sourceTime` 相同、都延遲，會留下讀取較早的快照 | 平手時依 feed 的新鮮度基準比較（警特報用 `retrievedAt`）；網站同時受益 |
+| 長事故結案後立刻從長期紀錄消失（Codex 列為「符合明訂規則」，主 session 判斷規則本身不對） | 開始超過 90 天才結案的事故 | 改依結束時間保留 |
+
+Codex 確認無問題的項目：快取不會讓過期資料被當成新的（每次重新判定）、沒有鄉鎮時不讀 22 個雨量檔、錯誤訊息不會帶出含 `api_key` 的網址、事故 Atom 跳脫、舊格式 `status.json` 仍可讀、抽出 `packages/assess` 後 `assess.ts` 與舊版逐位元組相同、`npx --package=<tarball URL>` 語法正確。它無法驗證 GitHub 上 mermaid 的實際渲染（當時尚未推送），改由主 session 推送後確認。
