@@ -1,5 +1,5 @@
 import { activeHazards, type FeedDataMap, type HeatWarning } from "@taiwan-life-data/collectors";
-import { distanceKm, formatTaipei, type Town } from "@taiwan-life-data/contract";
+import { distanceKm, FEEDS, formatTaipei, type Town } from "@taiwan-life-data/contract";
 
 export type Tone = "ok" | "notice" | "warn" | "danger" | "unknown";
 
@@ -27,6 +27,13 @@ const nearest = <T extends { lat?: number | null; lon?: number | null }>(items: 
     .map((item) => ({ item, distance: item.lat != null && item.lon != null ? distanceKm(town, { lat: item.lat, lon: item.lon }) : null }))
     .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
 
+/**
+ * A feed's freshness comes from its newest station, so a station that stopped
+ * reporting would ride along as "live". Each station must itself be within the
+ * feed's delayed window, or it is not used.
+ */
+const fresh = (time: string, maxMinutes: number, now: number) => now - Date.parse(time) <= maxMinutes * 60_000;
+
 /** Warnings are issued per county; sub-areas (山區 etc.) are listed when CWA names them. */
 export const assessWarnings = (data: FeedDataMap["warnings"], town: Town, now: number): Verdict => {
   const hazards = activeHazards(data.counties.find((c) => c.county === town.county), now);
@@ -52,6 +59,8 @@ export const assessHeat = (data: FeedDataMap["heat"], town: Town, now: number): 
     if (!peak || HEAT_RANK[p.warning] > HEAT_RANK[peak.warning!]) peak = p;
   }
   if (!current) return { tone: "unknown", headline: "預報沒有涵蓋現在這個時段", details: [] };
+  // No index for this slot: a missing warning means "no data", not "no warning".
+  if (current.index === null && !current.warning) return { tone: "unknown", headline: "官方預報這個時段沒有數值，不做判斷", details: [] };
   const details: string[] = [];
   if (current.index !== null) details.push(`現在熱傷害指數 ${current.index}（${hourOf(current.time)}–${hourOf(new Date(Date.parse(current.time) + SLOT_MS).toISOString())} 時）`);
   details.push(peak ? `未來 24 小時最高：${peak.warning}（${formatTaipei(peak.time)} 起）` : "未來 24 小時沒有熱傷害警示");
@@ -66,14 +75,14 @@ const uvLevel = (uv: number): { label: string; tone: Tone } =>
  * About 30 stations measure UV, so the nearest UV station in the same county is
  * used and its distance shown. Never borrowed from another county (DECISIONS D8).
  */
-export const assessUv = (data: FeedDataMap["uv"], town: Town): Verdict => {
-  const inCounty = data.stations.filter((s) => s.county === town.county);
+export const assessUv = (data: FeedDataMap["uv"], town: Town, now: number): Verdict => {
+  const inCounty = data.stations.filter((s) => s.county === town.county && fresh(s.observedAt, FEEDS.uv.freshness.delayedForMinutes, now));
   const details: string[] = [];
   const sameTown = inCounty.filter((s) => s.temperature !== null && s.townCode === town.geocode);
   const temp = nearest(sameTown.length ? sameTown : inCounty.filter((s) => s.temperature !== null), town)[0];
   if (temp) details.push(`氣溫 ${temp.item.temperature}°C（${temp.item.name}測站${temp.distance !== null ? `，${km(temp.distance)}` : ""}，${formatTaipei(temp.item.observedAt)}）`);
   const uv = nearest(inCounty.filter((s) => s.uvIndex !== null), town)[0];
-  if (!uv) return { tone: "unknown", headline: "本縣市沒有紫外線測站，不推估", details };
+  if (!uv) return { tone: "unknown", headline: "本縣市沒有近期的紫外線觀測，不推估", details };
   const level = uvLevel(uv.item.uvIndex!);
   details.unshift(`${uv.item.name}測站${uv.distance !== null ? `（${km(uv.distance)}）` : ""} ${formatTaipei(uv.item.observedAt)} 觀測`);
   return { tone: level.tone, headline: `紫外線 ${uv.item.uvIndex}（${level.label}）`, details };
@@ -81,10 +90,10 @@ export const assessUv = (data: FeedDataMap["uv"], town: Town): Verdict => {
 
 const aqiTone = (aqi: number): Tone => (aqi > 150 ? "danger" : aqi > 100 ? "warn" : aqi > 50 ? "notice" : "ok");
 
-export const assessAqi = (data: FeedDataMap["aqi"], town: Town): Verdict => {
-  const ranked = nearest(data.stations.filter((s) => s.county === town.county), town);
+export const assessAqi = (data: FeedDataMap["aqi"], town: Town, now: number): Verdict => {
+  const ranked = nearest(data.stations.filter((s) => s.county === town.county && fresh(s.publishTime, FEEDS.aqi.freshness.delayedForMinutes, now)), town);
   const near = ranked[0];
-  if (!near) return NO_DATA;
+  if (!near) return { tone: "unknown", headline: "本縣市沒有近期的空品觀測，不做判斷", details: [] };
   const s = near.item;
   const worst = [...ranked].sort((a, b) => b.item.aqi - a.item.aqi)[0]!.item;
   const details = [
@@ -97,7 +106,7 @@ export const assessAqi = (data: FeedDataMap["aqi"], town: Town): Verdict => {
 export const assessRain = (data: FeedDataMap["rain"], town: Town, now: number): Verdict => {
   const entry = data.towns.find((t) => t.geocode === town.geocode);
   if (!entry) return NO_DATA;
-  const next = entry.slots.filter((s) => Date.parse(s.start) + SLOT_MS > now).slice(0, 4);
+  const next = entry.slots.filter((s) => Date.parse(s.start) + SLOT_MS > now && Date.parse(s.start) < now + 12 * HOUR).slice(0, 4);
   const known = next.filter((s) => s.pop !== null);
   if (!known.length) return { tone: "unknown", headline: "預報沒有涵蓋接下來 12 小時", details: [] };
   const peak = known.reduce((a, b) => (b.pop! > a.pop! ? b : a));
@@ -117,13 +126,13 @@ export const summarize = (items: Array<{ label: string; verdict: Verdict | null;
   const pending = items.filter((i) => i.pending);
   const flagged = items.filter((i) => i.verdict && !i.verdict.quiet && TONE_RANK[i.verdict.tone] >= 1).sort((a, b) => TONE_RANK[b.verdict!.tone] - TONE_RANK[a.verdict!.tone]);
   const unknown = items.filter((i) => !i.pending && (!i.verdict || i.verdict.tone === "unknown"));
-  if (pending.length === items.length) return { tone: "unknown", text: "讀取官方資料中…" };
+  // Short until everything is in, so the line never wraps and re-flows the card.
+  if (pending.length) return { tone: "unknown", text: `讀取官方資料中…（${items.length - pending.length}/${items.length}）` };
   const parts: string[] = [];
   if (flagged.length) parts.push(`留意${flagged.map((i) => i.label).join("、")}`);
   else if (!unknown.length && !pending.length) parts.push("各項都在一般範圍，正常出門");
   else parts.push("已知項目沒有需要特別留意的");
   if (unknown.length) parts.push(`${unknown.map((i) => i.label).join("、")}無法判斷`);
-  if (pending.length) parts.push(`${pending.length} 項讀取中`);
   const tone = flagged[0]?.verdict?.tone ?? (unknown.length ? "unknown" : "ok");
   return { tone, text: parts.join("；") };
 };

@@ -29,8 +29,8 @@ const assess = (feed: FeedId, data: unknown, town: Town, now: number): Verdict =
   switch (feed) {
     case "warnings": return assessWarnings(data as FeedDataMap["warnings"], town, now);
     case "heat": return assessHeat(data as FeedDataMap["heat"], town, now);
-    case "uv": return assessUv(data as FeedDataMap["uv"], town);
-    case "aqi": return assessAqi(data as FeedDataMap["aqi"], town);
+    case "uv": return assessUv(data as FeedDataMap["uv"], town, now);
+    case "aqi": return assessAqi(data as FeedDataMap["aqi"], town, now);
     case "rain": return assessRain(data as FeedDataMap["rain"], town, now);
   }
 };
@@ -110,7 +110,8 @@ function FeedBlock({ view, town, now }: { view: FeedView; town: Town | null; now
     <section className={`block tone-${verdict?.tone ?? "unknown"}`} aria-labelledby={`h-${feed}`} aria-busy={pending || refreshing}>
       <header className="block-head">
         <h2 id={`h-${feed}`}>{definition.label}</h2>
-        <span className={`badge badge-${status ?? "loading"}`}>{status ? STATUS_TEXT[status] : "讀取中"}</span>
+        {/* Refresh state lives in the badge so the block height does not change. */}
+        <span className={`badge badge-${status ?? "loading"}`}>{status ? `${STATUS_TEXT[status]}${refreshing ? "・確認中" : ""}` : "讀取中"}</span>
       </header>
       {pending && <p className="verdict muted-verdict">讀取中…</p>}
       {!pending && !verdict && status !== "live" && status !== "delayed" && <p className="verdict">{FAIL_CLOSED[status === "stale" ? "stale" : "unavailable"](feed)}</p>}
@@ -129,7 +130,6 @@ function FeedBlock({ view, town, now }: { view: FeedView; town: Town | null; now
               {envelope.via === "browser" ? "・直接讀官方檔案" : "・本站快照"}・
             </>
           )}
-          {refreshing && "正在向官方確認最新資料…・"}
           <a href={sourceUrl} target="_blank" rel="noreferrer">{definition.source.agency} {datasetId}</a>・{definition.freshness.cadence}
         </p>
       )}

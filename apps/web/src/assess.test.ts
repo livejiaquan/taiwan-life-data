@@ -31,6 +31,8 @@ describe("assessments (township level)", () => {
     expect(assessHeat(data, annan, NOW).details.join()).toContain("危險");
     expect(assessHeat(data, tainanEast, NOW)).toMatchObject({ tone: "ok", headline: "現在沒有熱傷害警示" });
     expect(assessHeat(data, findTown("臺南市", "新營區")!, NOW).tone).toBe("unknown");
+    const blank = { issuedAt: "", towns: [{ ...data.towns[1]!, points: [{ time: "2026-10-16T03:00:00Z", index: null, warning: null }, { time: "2026-10-16T06:00:00Z", index: 30, warning: "注意" as const }] }] };
+    expect(assessHeat(blank, tainanEast, NOW)).toMatchObject({ tone: "unknown", headline: "官方預報這個時段沒有數值，不做判斷" });
   });
 
   it("uv: nearest UV station in the county with distance; temperature prefers the same township", () => {
@@ -40,19 +42,24 @@ describe("assessments (township level)", () => {
       { ...base, id: "2", name: "七股", county: "臺南市", town: "七股區", townCode: "67000250", lat: 23.15, lon: 120.1, uvIndex: 3, temperature: 29 },
       { ...base, id: "3", name: "安南", county: "臺南市", town: "安南區", townCode: annan.geocode, lat: 23.05, lon: 120.18, uvIndex: null, temperature: 30.5 },
     ] };
-    const v = assessUv(data, annan);
+    const v = assessUv(data, annan, NOW);
     expect(v.headline).toBe("紫外線 9（過量級）");
     expect(v.details[0]).toMatch(/^臺南測站（約 \d+ 公里）/);
     expect(v.details[1]).toContain("氣溫 30.5°C（安南測站");
-    expect(assessUv(data, findTown("嘉義市", "東區")!)).toMatchObject({ tone: "unknown", headline: "本縣市沒有紫外線測站，不推估" });
+    expect(assessUv(data, findTown("嘉義市", "東區")!, NOW)).toMatchObject({ tone: "unknown", headline: "本縣市沒有近期的紫外線觀測，不推估" });
+    // A station that stopped reporting is skipped even though the feed is live overall.
+    const stale = { stations: data.stations.map((s) => (s.id === "1" ? { ...s, observedAt: "2026-10-15T04:00:00Z" } : s)) };
+    expect(assessUv(stale, annan, NOW).headline).toBe("紫外線 3（中量級）");
   });
 
   it("aqi: nearest station in the county, with the county maximum for context", () => {
-    const station = (name: string, aqi: number, lat: number, lon: number) => ({ siteId: name, name, county: "臺南市", aqi, status: aqi > 100 ? "對敏感族群不健康" : "普通", pollutant: null, pm25: 20, pm10: null, o3_8hr: null, publishTime: "", lat, lon });
+    const station = (name: string, aqi: number, lat: number, lon: number, publishTime = "2026-10-16T04:00:00Z") => ({ siteId: name, name, county: "臺南市", aqi, status: aqi > 100 ? "對敏感族群不健康" : "普通", pollutant: null, pm25: 20, pm10: null, o3_8hr: null, publishTime, lat, lon });
     const data = { stations: [station("安南", 80, 23.048, 120.217), station("新營", 120, 23.306, 120.317)] };
-    const v = assessAqi(data, annan);
+    const v = assessAqi(data, annan, NOW);
     expect(v).toMatchObject({ tone: "notice", headline: "AQI 80（普通）", quiet: true });
     expect(v.details).toEqual([expect.stringMatching(/^最近測站：安南/), "臺南市 2 站中最高：新營 120"]);
+    const old = { stations: [station("安南", 20, 23.048, 120.217, "2026-10-15T04:00:00Z")] };
+    expect(assessAqi(old, annan, NOW)).toMatchObject({ tone: "unknown", headline: "本縣市沒有近期的空品觀測，不做判斷" });
   });
 
   it("rain: peak 3-hour PoP over the next 12 hours", () => {
@@ -62,6 +69,8 @@ describe("assessments (township level)", () => {
     expect(v).toMatchObject({ tone: "notice", headline: "未來 12 小時降雨機率最高 60%，建議帶傘" });
     expect(v.details[0]).toBe("12時 20% 多雲・15時 60% 短暫雨・18時 10% 多雲・21時 30% 多雲");
     expect(assessRain(data, tainanEast, NOW).tone).toBe("unknown");
+    const far = { issuedAt: "", towns: [{ ...data.towns[0]!, slots: [slot("09", 10), { start: "2026-10-17T15:00:00+08:00", pop: 90, weather: "雨" }] }] };
+    expect(assessRain(far, annan, NOW).tone).toBe("unknown");
   });
 
   it("summary flags the riskiest items and never calls unknown items safe", () => {

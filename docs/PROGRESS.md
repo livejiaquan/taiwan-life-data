@@ -1,5 +1,7 @@
 # 進度（PROGRESS）
 
+（「需要使用者」#1 推上 workflow 時注意：本機 `main` 比 `origin/main` 多一個 workflow commit，直接 `git push` 即可。）
+
 ## 需要使用者
 
 | # | 要做的事 | 為什麼 | 怎麼做 | 目前替代方案 |
@@ -7,6 +9,91 @@
 | 1 | **給 gh token 加 `workflow` 權限，推上 workflow commit** | 現有 OAuth token 只有 `gist, read:org, repo`，GitHub 拒絕推送 `.github/workflows/*`（`refusing to allow an OAuth App to create or update workflow … without workflow scope`）。沒有 workflow 就沒有 CI、也沒有排程收集。 | 在本 repo 執行：`gh auth refresh -h github.com -s workflow`（瀏覽器授權）→ `git push`（推上本機已備好的 commit「Add CI and collect-and-deploy workflows」）→ `gh api -X PUT repos/livejiaquan/taiwan-life-data/pages -f build_type=workflow`（Pages 改由 workflow 部署） | 本機建置後推到 `gh-pages` 分支，Pages 以 legacy 方式從該分支提供。CWA 三個 feed 由瀏覽器直接讀官方檔，不受影響；AQI 快照不會自動更新，過 80 分鐘顯示「延遲」、3 小時後顯示「過舊」且不下結論。 |
 | 2 | 設定 GitHub secret `MOENV_API_KEY` | PLAN 指定 AQI 走自己的金鑰 | 到 https://data.moenv.gov.tw/ 申請 API key → `gh secret set MOENV_API_KEY -R livejiaquan/taiwan-life-data` | collector 改用環境部刊登在 data.gov.tw 的公開下載連結（執行時解析，不入庫、不進瀏覽器），見 DECISIONS D3 |
 | 3 | `npx wrangler login`（Cloudflare 帳號） | AQI 要達到 p95 ≤ 30 分，需要準時排程；Actions 實測間隔中位數 2–5 小時（DECISIONS D2） | 執行 `npx wrangler login`，完成後告訴下一階段 session，由它建立 Workers Cron | 見 #1 的替代方案 |
+| 4 | **把第 2 階段部署上線** | 本 session 執行 `scripts/deploy-gh-pages.sh` 時被 Claude Code 自動模式判為「正式環境部署」擋下（未繞過）。程式已推上 `main`，但線上網址仍是第 1 階段版本。 | 在本 repo 執行 `./scripts/deploy-gh-pages.sh`（collect → 金鑰檢查建置 → 覆寫 `gh-pages`）；或完成 #1 後由 Pages workflow 自動部署。部署後可用 `npx lighthouse@12.8.2 "https://livejiaquan.github.io/taiwan-life-data/?county=臺南市&town=安南區"` 補線上量測。 | 驗收的效能數據改以本機正式建置（`vite preview`，gzip）量測，見下方第 2 階段 |
+
+## 階段 2 出門前 — 狀態：完成（線上部署待使用者 #4）
+
+### 做了什麼
+- **368 鄉鎮選擇**：從氣象署 M-A0085-001 產生 368 鄉鎮清單（geocode＋中心點）入庫；縣市 → 鄉鎮市區兩層原生選單；`?county=&town=` 可分享、本機記住上次地點、相容第 1 階段 `?county=` 連結（DECISIONS D10）。
+- **首頁「出門前」卡（鄉鎮級）**：摘要列（點名需要留意的項目、無法判斷的項目照實寫出）→ 警特報（縣市發布，標子區域）→ 熱傷害（該鄉鎮官方指數）→ 紫外線／氣溫（同縣市最近 UV 站＋距離；氣溫優先同鄉鎮測站）→ 空品（同縣市最近測站＋縣市最高）→ **降雨（新 feed，該鄉鎮未來 12 小時 3 小時降雨機率）**。每項都有狀態徽章、資料時間、資料年齡、取得方式、官方資料集連結（D11、D12）。
+- **/status 頁**：各 feed 現在狀態、官方資料時間、資料年齡、最近成功收集、最近一次嘗試、門檻、收集當下資料年齡中位數／p95、收集間隔中位數／p95、事故清單；`data/status.json` 每次收集自動累積（讀回線上上一份，不需資料庫）。收集失敗時改發布上一份好快照而不是用「無法取得」覆蓋（D14）。
+- **LINE 分享**：「傳到 LINE」（`line.me/R/share`）、「複製文字」、「產生圖卡」（Canvas 1080×1350 PNG；手機走 Web Share、其餘可下載），文字與圖卡每項都附狀態與資料時間（D15）。
+- **手機版與效能**：手機優先版面（44–48 px 觸控目標、≤22rem 單欄）；建置時預先渲染首屏＋內嵌 CSS＋hydration，LCP 不等 JS（D13）。
+- **部署腳本**：`scripts/deploy-gh-pages.sh`（D16）；本 session 執行被權限擋下，見「需要使用者」#4。
+
+### 驗收證據
+
+| 驗收項 | 結果 | 證據 |
+|---|---|---|
+| 368 鄉鎮皆可選 | ✅ | 單元測試（368 個 geocode 唯一、每個都能從 URL 還原）＋ headless Chrome 實際操作選單逐一選 368 個鄉鎮，0 問題（下方輸出） |
+| 4G 降速中階手機 LCP ≤ 1.5 s | ✅ 中位數達標；⚠️ 模擬 8 次中 3 次超標；**線上未量** | DevTools 實際降速 3/3：0.64–0.65 s；lantern 模擬 8 次：1.35–1.36 s ×5、1.54／1.66／1.81 s（中位數 1.36 s，超標原因見 D13）。量測對象是本機正式建置，不是線上網址 |
+| 首屏 JS ≤ 150 KB gzip | ✅ | Lighthouse 量到首頁 Script 傳輸 89,502 B（main＋共用 chunk，gzip） |
+| Lighthouse a11y ≥ 95 | ✅ 100 | 首頁與 /status、兩種降速模式全部 100 |
+| 附報告 | ✅ | `docs/reports/phase2/`：首頁 DevTools 降速、首頁模擬降速、/status DevTools 降速 HTML 報告＋全部 13 次的 `lighthouse-runs.json` |
+
+Lighthouse 條件：12.8.2、mobile（Moto G Power 模擬）、RTT 150 ms、1.6 Mbps、CPU 4×；對象為 `vite preview`（gzip）提供的正式建置，網址 `?county=臺南市&town=安南區`。
+
+```
+run            throttling  lcp_ms fcp_ms a11y  cls   js_bytes
+i-dt-home-1    devtools      643   643  100  0.017  89502
+i-dt-home-2    devtools      648   648  100  0.017  89502
+i-dt-home-3    devtools      646   646  100  0.017  89502
+i-dt-status    devtools      684   684  100  0.04   85191
+i-home-1       simulate     1353  1353  100  0.021  89502
+i-home-2       simulate     1358  1358  100  0.021  89502
+i-home-3       simulate     1658  1354  100  0.021  89502
+i-home-4       simulate     1810  1354  100  0.021  89502
+i-home-5       simulate     1354  1354  100  0.021  89502
+i-home-6       simulate     1353  1353  100  0.021  89502
+i-home-7       simulate     1541  1386  100  0.021  89502
+i-home-8       simulate     1354  1354  100  0.021  89502
+i-status       simulate     1354  1354  100  0.04   85191
+```
+
+368 鄉鎮端對端（headless Chrome，390×844，實際操作兩個選單；每次確認摘要列地名、URL 帶 `town=`、5 個區塊都不是「讀取中」或「沒有這個地區的資料」）：
+```
+{"基隆市":7,"臺北市":12,"新北市":29,"桃園市":13,"新竹市":3,"新竹縣":13,"苗栗縣":18,"臺中市":29,"彰化縣":26,"南投縣":13,"雲林縣":20,"嘉義市":2,"嘉義縣":18,"臺南市":37,"高雄市":38,"屏東縣":33,"宜蘭縣":12,"花蓮縣":13,"臺東縣":16,"澎湖縣":6,"金門縣":6,"連江縣":4}
+counties=22 townships checked=368 problems=0
+```
+
+本機檢查（2026-10-16 01:1x +08）：
+```
+$ npm run lint        → 無錯誤
+$ npm run typecheck   → 無錯誤
+$ npm test
+ Test Files  4 passed (4)
+      Tests  50 passed (50)
+$ npm run collect
+status: no previous status.json on the live site; history starts now
+warnings live        ok=true source=2026-10-15T08:26:24.000Z age=0m
+uv       live        ok=true source=2026-10-15T16:40:00.000Z age=20m
+heat     live        ok=true source=2026-10-15T14:00:54.000Z age=179m
+aqi      live        ok=true source=2026-10-15T16:00:00.000Z age=60m issues=使用 data.gov.tw 公開下載連結（尚未設定 MOENV_API_KEY）
+rain     live        ok=true source=2026-10-15T15:00:00.000Z age=120m
+status: 1 runs, 0 open incidents
+$ npm run build:public
+prerendered index.html / status/index.html
+Public artifacts checked (13 files): no credential markers or key-requiring API URLs.
+```
+
+畫面實測（headless Chrome 390×844）：首頁 5 區塊皆有結論、console 0 錯誤；「傳到 LINE」連結內文含 5 項狀態與資料時間；「產生圖卡」產出 1080×1350 PNG（每項附資料時間）；/status 正常顯示 5 個 feed 與收集紀錄。
+
+獨立複核（Codex，從 GitHub 下載 `fa89d0b` 的 archive——其環境無法解析 github.com，git clone 失敗；npm 改以預先下載的 tarball 離線安裝）：
+- `npm run lint`／`typecheck` 通過；`npm test`：`Test Files 4 passed (4) / Tests 50 passed (50)`。`npm run build:public` 在其沙箱因 tsx 無法建立 IPC socket（`listen EPERM`）失敗，分段改跑後 vite 建置、prerender、產物掃描皆通過——**這是環境限制，但原指令在該環境記為失敗**。
+- 從官方 M-A0085-001 重新數：`OFFICIAL_COUNT=368 / TOWNS_TS_COUNT=368 / 兩邊缺漏 0`。
+- 22 個降雨檔逐檔：HTTP 200、`ACAO: *`、`LocationsName` 全吻合、鄉鎮數全吻合（`RAIN_FILES_VERIFIED=22 NAME_MISMATCHES=0 COUNT_MISMATCHES=0`）。
+- 程式審查找到 3 個問題，主 session 逐一對照程式碼確認成立並修正（DECISIONS D17）：UV／AQI 停報測站會隨 feed 被當成即時、熱傷害當前時段無指數時誤判「沒有警示」、降雨可能取到 12 小時以外的時段。修正後重跑測試 50/50、368 鄉鎮端對端 0 問題、上表 Lighthouse 為修正後數據。
+- 未發現：stale／unavailable 仍下結論的路徑、跨鄉鎮誤用資料、`updateStatus` 事故開關錯誤、金鑰寫入公開檔的路徑。
+
+### 未完成／已知限制
+- **線上仍是第 1 階段**（#4）；線上 Lighthouse 未量。
+- 降雨的發布節奏採官方說明「一天 4 次」（搜尋摘要，PDF 本文未開啟），下一次實際發布時間未實測（D11）。
+- UV 快照的 live 窗只有 25 分，Actions 排程又不準，首頁幾乎每次都會直接讀 669 KB 的 O-A0003-001（D7 的代價仍在；要靠 Workers Cron 產出瘦身檔才能解，待 #3）。
+- /status 只量得到收集當下的快照年齡；瀏覽器直接讀官方檔時的年齡沒有回傳（不做追蹤）。
+- 實體手機未測（只有 Lighthouse 模擬與 headless Chrome）。
+
+### 下一步（階段 3）
+- 電網碳強度＋綠電時段（方法與係數出處寫進 docs）、水庫、公開 JSON API＋文件、歷史存檔。`status.json` 的「讀回上一份再累積」作法可直接延伸成每日存檔。
 
 ## 階段 1 基礎 — 狀態：完成（CI 綠燈待使用者 #1）
 
