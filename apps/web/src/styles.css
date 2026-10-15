@@ -104,4 +104,7 @@ details { margin-top: 0.5rem; font-size: 0.85rem; }
 summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
 .hour-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .hour-table th, .hour-table td { text-align: right; padding: 0.1rem 0.5rem; border-bottom: 1px solid var(--line); }
+.reserve-power { min-height: 32rem; }
+.reserve-reservoir { min-height: 52rem; }
+@media (min-width: 40rem) { .reserve-power { min-height: 28rem; } .reserve-reservoir { min-height: 50rem; } }
 @media (max-width: 22rem) { .picker { grid-template-columns: 1fr; } .kv { grid-template-columns: 1fr; } .reservoirs li { grid-template-columns: 6.5em 1fr 3.6em; } .res-time { grid-column: 1 / -1; } }

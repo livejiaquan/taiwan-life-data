@@ -40,6 +40,15 @@ describe("archive day files", () => {
     expect(() => appendSample(first.day, powerEnvelope("2026-10-14T10:00:00.000Z"))).toThrow(/written to/);
   });
 
+  it("keeps a changed snapshot even when sourceTime is unchanged (late station)", () => {
+    const { data } = parseReservoirs(fixture("wra-realtime.json"), fixture("wra-daily.json"), NOW);
+    const env = (d: typeof data) => createEnvelope("reservoir", { sourceTime: "2026-10-15T17:00:00.000Z", data: d }, NOW);
+    const first = appendSample(null, env(data))!;
+    expect(appendSample(first.day, env(data))!.added).toBe(false);
+    const later = { reservoirs: data.reservoirs.map((r) => (r.name === "新山水庫" ? { ...r, percent: 86, observedAt: "2026-10-16T07:00:00+08:00" } : r)) };
+    expect(appendSample(first.day, env(later))!.added).toBe(true);
+  });
+
   it("does not archive unavailable snapshots", () => {
     expect(appendSample(null, createEnvelope<PowerData>("power", { sourceTime: null, data: null }, NOW))).toBeNull();
   });

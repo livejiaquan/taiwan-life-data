@@ -114,12 +114,16 @@ export const archiveDateOf = (envelope: FeedEnvelope<unknown>): string | null =>
   return at === undefined ? null : taipeiDate(at);
 };
 
-const sameUpdate = (feed: FeedId, a: ArchiveSample, b: ArchiveSample) =>
-  FEEDS[feed].freshness.basis === "retrievedAt" ? JSON.stringify(a.data) === JSON.stringify(b.data) : a.sourceTime === b.sourceTime;
+/**
+ * Same official update = same sourceTime AND identical data. sourceTime alone is not enough:
+ * multi-station feeds take it from the newest station, so a late station can change the data
+ * while sourceTime stays put (Codex review, docs/DECISIONS.md D21).
+ */
+const sameUpdate = (a: ArchiveSample, b: ArchiveSample) => a.sourceTime === b.sourceTime && JSON.stringify(a.data) === JSON.stringify(b.data);
 
 /**
  * Adds a snapshot to its day file. A sample is skipped when the day already holds the same
- * official update (same sourceTime; for warnings, identical content to the last sample),
+ * official update (for warnings, whose `sent` rarely changes: identical to the last sample),
  * so re-published snapshots after a failed collect never duplicate.
  */
 export const appendSample = <K extends FeedId>(
@@ -132,7 +136,7 @@ export const appendSample = <K extends FeedId>(
   const sample: ArchiveSample = { retrievedAt: envelope.retrievedAt, sourceTime: envelope.sourceTime, status: envelope.status, data: compactData(envelope.feed as K, envelope.data) };
   const base: ArchiveDay = day ?? { schemaVersion: 1, feed: envelope.feed, date, source: envelope.source, format: ARCHIVE_FORMATS[envelope.feed], samples: [] };
   const isWarnings = FEEDS[envelope.feed].freshness.basis === "retrievedAt";
-  const duplicate = isWarnings ? base.samples.length > 0 && sameUpdate(envelope.feed, base.samples.at(-1)!, sample) : base.samples.some((s) => sameUpdate(envelope.feed, s, sample));
+  const duplicate = isWarnings ? base.samples.length > 0 && sameUpdate(base.samples.at(-1)!, sample) : base.samples.some((s) => sameUpdate(s, sample));
   if (duplicate) return { day: base, added: false };
   const samples = [...base.samples, sample].sort((a, b) => (a.sourceTime ?? a.retrievedAt).localeCompare(b.sourceTime ?? b.retrievedAt));
   return { day: { ...base, samples }, added: true };

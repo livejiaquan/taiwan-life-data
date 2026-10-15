@@ -35,12 +35,16 @@ const dir = process.argv[2];
 if (!dir) throw new Error("usage: npm run archive -- <archive-dir>");
 const V1 = join(resolve(dir), "v1");
 
+/** undefined only when the file does not exist; an unreadable or corrupt file stops the run (never overwrite history). */
 const readJson = async (path: string): Promise<unknown> => {
+  let text: string;
   try {
-    return JSON.parse(await readFile(path, "utf8"));
-  } catch {
-    return undefined;
+    text = await readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
   }
+  return JSON.parse(text);
 };
 
 const writeAtomic = async (path: string, value: unknown) => {
@@ -70,7 +74,8 @@ for (const feed of Object.keys(FEEDS) as FeedId[]) {
     if (probe) {
       const path = join(V1, feed, `${probe.day.date}.json`);
       const existing = await readJson(path);
-      const result = appendSample(isArchiveDay(existing, feed, probe.day.date) ? (existing as ArchiveDay) : null, envelope)!;
+      if (existing !== undefined && !isArchiveDay(existing, feed, probe.day.date)) throw new Error(`archive: ${path} 不是有效的存檔，停止以免覆蓋歷史`);
+      const result = appendSample((existing as ArchiveDay | undefined) ?? null, envelope)!;
       if (result.added) await writeAtomic(path, result.day);
       note = `${result.added ? "added" : "duplicate"} → ${probe.day.date} (${result.day.samples.length} samples)`;
     } else note = "no data, skipped";

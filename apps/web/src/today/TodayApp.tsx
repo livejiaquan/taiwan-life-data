@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { isPowerProfile, type FeedDataMap, type PowerProfile } from "@taiwan-life-data/collectors";
 import { dataAgeMinutes, FEEDS, formatTaipei, type FeedEnvelope, type FeedStatus } from "@taiwan-life-data/contract";
 import { loadSnapshot, pickBest, readOfficial } from "../load";
-import { assessPower, CATEGORY_LABEL, REGION_LABEL, reservoirRows, reservoirTone, windowText } from "./today";
+import { assessPower, CATEGORY_LABEL, REGION_LABEL, usableProfile, reservoirRows, reservoirTone, windowText } from "./today";
 
 const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
 const REPO = "https://github.com/livejiaquan/taiwan-life-data/blob/main";
@@ -45,10 +45,11 @@ function Meta({ feed, envelope, now }: { feed: "power" | "reservoir"; envelope: 
 function PowerBlock({ power, profile, now }: { power: Slot<Env<"power">>; profile: PowerProfile | null; now: number }) {
   const best = power ? pickBest([power], now) : null;
   const usable = best && (best.status === "live" || best.status === "delayed") ? best.envelope.data! : null;
-  const verdict = usable ? assessPower(usable, profile) : null;
+  const verdict = usable ? assessPower(usable, profile, now) : null;
   const total = usable ? usable.categories.reduce((s, c) => s + Math.max(0, c.mw), 0) : 0;
   return (
-    <section className={`block tone-${verdict?.tone ?? "unknown"}`} aria-labelledby="h-power" aria-busy={power === undefined}>
+    // While loading, reserve the loaded height (measured at 360–412 px) so nothing below shifts.
+    <section className={`block tone-${verdict?.tone ?? "unknown"}${power === undefined ? " reserve-power" : ""}`} aria-labelledby="h-power" aria-busy={power === undefined}>
       <header className="block-head">
         <h2 id="h-power">電網碳強度</h2>
         <Badge status={power === undefined ? null : (best?.status ?? "unavailable")} />
@@ -72,16 +73,21 @@ function PowerBlock({ power, profile, now }: { power: Slot<Env<"power">>; profil
           </ul>
         </>
       )}
-      {power !== undefined && <Meta feed="power" envelope={best?.envelope ?? power} now={now} />}
-      <p className="meta">
-        生命週期係數（IPCC 2014 等，依 Electricity Maps 整理），儲能不計入。<a href={`${REPO}/docs/METHODOLOGY-carbon.md`}>計算方法與係數出處</a>
-      </p>
+      {power !== undefined && (
+        <>
+          <Meta feed="power" envelope={best?.envelope ?? power} now={now} />
+          {/* Rendered only after loading: drawn earlier it would be pushed down (layout shift). */}
+          <p className="meta">
+            生命週期係數（IPCC 2014 等，依 Electricity Maps 整理），儲能不計入。<a href={`${REPO}/docs/METHODOLOGY-carbon.md`}>計算方法與係數出處</a>
+          </p>
+        </>
+      )}
     </section>
   );
 }
 
-function GreenHoursBlock({ profile, loading }: { profile: PowerProfile | null; loading: boolean }) {
-  const ready = profile?.greenest && profile.dirtiest ? profile : null;
+function GreenHoursBlock({ profile, loading, now }: { profile: PowerProfile | null; loading: boolean; now: number }) {
+  const ready = usableProfile(profile, now)?.greenest ? profile : null;
   const values = ready ? ready.hours.filter((h) => h.lifecycle !== null).map((h) => h.lifecycle!) : [];
   const min = Math.min(...values);
   const span = Math.max(1, Math.max(...values) - min);
@@ -96,7 +102,7 @@ function GreenHoursBlock({ profile, loading }: { profile: PowerProfile | null; l
         <>
           <p className="verdict">樣本還不夠，暫不推估綠電時段。</p>
           <p className="meta">
-            {profile ? `目前累積 ${profile.samples} 筆（${profile.insufficient}）。` : "讀不到綠電時段資料。"}
+            {!profile ? "讀不到綠電時段資料。" : profile.insufficient ? `目前累積 ${profile.samples} 筆（${profile.insufficient}）。` : `最新樣本是 ${formatTaipei(profile.to)}，超過 3 天，不再當作「最近」。`}
             需要至少 48 筆、涵蓋 18 個小時的台電資料才會計算；收集排程變準時之後會更快累積。
           </p>
         </>
@@ -133,7 +139,7 @@ function ReservoirBlock({ reservoir, refreshing, now }: { reservoir: Slot<Env<"r
   const usable = best && (best.status === "live" || best.status === "delayed") ? best.envelope.data! : null;
   const regions = usable ? reservoirRows(usable, now) : null;
   return (
-    <section className="block tone-unknown" aria-labelledby="h-reservoir" aria-busy={reservoir === undefined || refreshing}>
+    <section className={`block tone-unknown${reservoir === undefined ? " reserve-reservoir" : ""}`} aria-labelledby="h-reservoir" aria-busy={reservoir === undefined || refreshing}>
       <header className="block-head">
         <h2 id="h-reservoir">主要水庫蓄水率</h2>
         <Badge status={reservoir === undefined ? null : (best?.status ?? "unavailable")} refreshing={refreshing} />
@@ -200,12 +206,13 @@ export function TodayApp() {
       <header className="masthead">
         <p className="brand"><a href={import.meta.env.BASE_URL}>台灣生活資料誌</a></p>
         <h1>今天的台灣</h1>
-        <p className="lede">電網現在多「乾淨」、一天中哪段時間用電最綠、主要水庫還有多少水。每項都標示官方資料時間；資料過舊就不顯示。</p>
+        <p className="lede">電網現在多「乾淨」、主要水庫還有多少水、一天中哪段時間用電最綠。每項都標示官方資料時間；資料過舊就不顯示。</p>
       </header>
       <div className="card">
         <PowerBlock power={power} profile={profile ?? null} now={now} />
-        <GreenHoursBlock profile={profile ?? null} loading={profile === undefined} />
         <ReservoirBlock reservoir={reservoir} refreshing={refreshing} now={now} />
+        {/* Last: its height changes most (sample-count note vs. chart), and nothing sits below it. */}
+        <GreenHoursBlock profile={profile ?? null} loading={profile === undefined} now={now} />
       </div>
       <footer className="footer">
         <p>資料來源：台灣電力公司、經濟部水利署開放資料（政府資料開放授權條款－第1版）。本站不代表各機關立場。</p>
