@@ -1,6 +1,6 @@
 # 進度（PROGRESS）
 
-（「需要使用者」#1 推上 workflow 時注意：本機 `main` 與 `origin/main` **內容相同但已分岔**——本機多兩個 workflow commit，而第 3 階段的 commit 是用 cherry-pick 推上去的（DECISIONS D24）。順序：`gh auth refresh -h github.com -s workflow` → `git pull --rebase`（git 會自動略過內容相同的 commit）→ `git push`。）
+（「需要使用者」#1 推上 workflow 時注意：本機 `main` 與 `origin/main` **內容相同但已分岔**——本機多 3 個 workflow commit（f3df6de、291c625、2d0bea5，第 4 階段新增的是 CI 打包 MCP），其餘 commit 都是用 cherry-pick 推上去的（DECISIONS D24）。順序：`gh auth refresh -h github.com -s workflow` → `git pull --rebase`（git 會自動略過內容相同的 commit）→ `git push`。）
 
 ## 需要使用者
 
@@ -9,7 +9,74 @@
 | 1 | **給 gh token 加 `workflow` 權限，推上 workflow commit** | 現有 OAuth token 只有 `gist, read:org, repo`，GitHub 拒絕推送 `.github/workflows/*`。沒有 workflow 就沒有 CI、排程收集，**存檔也不會自己每天累積**（第 3 階段的存檔步驟寫在 `pages.yml`）。 | 在本 repo：`gh auth refresh -h github.com -s workflow`（瀏覽器授權）→ `git pull --rebase` → `git push` → `gh api -X PUT repos/livejiaquan/taiwan-life-data/pages -f build_type=workflow`（Pages 改由 workflow 部署） | 執行 `./scripts/deploy-gh-pages.sh`：collect → 存檔 commit 到 `data` 分支 → 金鑰檢查建置 → 覆寫 `gh-pages`。本 session 已用它部署兩次。 |
 | 2 | 設定 GitHub secret `MOENV_API_KEY` | PLAN 指定 AQI 走自己的金鑰 | 到 https://data.moenv.gov.tw/ 申請 API key → `gh secret set MOENV_API_KEY -R livejiaquan/taiwan-life-data` | collector 改用環境部刊登在 data.gov.tw 的公開下載連結（執行時解析，不入庫、不進瀏覽器），見 DECISIONS D3 |
 | 3 | `npx wrangler login`（Cloudflare 帳號） | AQI 與**台電**（不允許跨網域，D18）都只能伺服器端收集；要達到 p95 ≤ 30 分、讓綠電時段快速累積樣本，需要準時排程（Actions 實測間隔中位數 2–5 小時，D2） | 執行 `npx wrangler login`，完成後告訴下一階段 session，由它建立 Workers Cron | 見 #1；電力過 90 分鐘即不顯示目前碳強度 |
+| 5 | **`npm login` 後發佈 MCP 套件** | PLAN 要求「npm 可安裝」；本機 `npm whoami` 失敗（未登入）。目前同一份 tarball 掛在 GitHub Release，已可用 npm 安裝，但 `npx -y taiwan-life-data-mcp` 這個短指令要等發佈 | 在本 repo：`npm login` → `npm publish -w taiwan-life-data-mcp --access public`（`prepack` 會自動重新打包）→ 完成後 README 的第一行安裝指令即可用 | `claude mcp add taiwan-life-data -- npx -y --package=https://github.com/livejiaquan/taiwan-life-data/releases/download/mcp-v0.1.0/taiwan-life-data-mcp-0.1.0.tgz taiwan-life-data-mcp`（已實測，DECISIONS D28） |
 | ~~4~~ | ~~把第 2 階段部署上線~~ | — | **已完成**：使用者 2026-10-16 01:38 執行部署腳本；本 session 02:04、02:11 再部署第 3 階段（gh-pages `ab05502`、`cc55d78`） | — |
+
+## 階段 4 開發者與門面 — 狀態：完成（npm 短指令待使用者 #5）
+
+### 做了什麼
+- **MCP server**（`packages/mcp-server`，npm 名稱 `taiwan-life-data-mcp`）：6 個唯讀工具 `outdoor_brief`（368 鄉鎮出門前）、`list_towns`、`grid_carbon`、`reservoirs`、`data_status`、`history`。先讀網站快照、依現在重算狀態；不是即時就在本機直接讀官方資料（同一份 parser 與驗證）；過舊／無法取得用與網站相同的 fail-closed 句子、不出現數值；每項附資料時間、資料年齡、取得方式、官方資料集（D27）。esbuild 打成單一檔、無執行期依賴（tarball 157 KB）。
+- **判讀邏輯共用**：網站的判讀程式搬到 `packages/assess`，網站與 MCP 同一套（D26）。
+- **發佈**：GitHub Release [`mcp-v0.1.0`](https://github.com/livejiaquan/taiwan-life-data/releases/tag/mcp-v0.1.0) 附 `npm pack` tarball（sha256 `b353ae06…efd0a`）；npm registry 待使用者 #5（D28）。
+- **README 雙語**：`README.md`（繁中）＋ `README.en.md`；線上真實截圖 3 張（`docs/screenshots/`）、mermaid 架構圖、資料來源與授權表、MCP 與 API 用法（D30）。MCP 套件另有自己的 README。
+- **`/status` 自動事故紀錄**：新增「收集中斷」（兩次收集相隔 > 60 分）、事故持續次數與最差資料年齡、進行中的中斷由讀取端即時計算、事故 Atom feed `data/incidents.xml`、長期紀錄 `archive/v1/incidents.json`（90 天，依結束時間保留）；`/status` 頁顯示判定規則與訂閱連結（D29）。API 文件補事故格式。
+- CI 加上 MCP 打包與 `npm pack --dry-run`（workflow commit，待使用者 #1）。
+
+### 驗收證據
+
+| 驗收項 | 結果 | 證據 |
+|---|---|---|
+| MCP 在 Claude Code 實際呼叫成功 | ✅ | Claude Code 2.1.300 headless（`claude -p --mcp-config`），伺服器從 **GitHub Release 網址**以 `npx` 安裝：`status: connected`，實際呼叫 `outdoor_brief`、`reservoirs`、`data_status` 並回傳線上資料（session `ac332904-…`，下方輸出）。較早另以本機 tarball 呼叫 `outdoor_brief`＋`grid_carbon` 成功（session `3db664d2-…`） |
+| MCP npm 可安裝 | ⚠️ 以 tarball URL 經 npm 安裝 ✅；registry 發佈待 #5 | Release 附件 HTTP 200、157,367 bytes；`npm pack --dry-run` 4 個檔 |
+| README 截圖為真實畫面 | ✅ | 線上網站以 DevTools Protocol 模擬 390×844 手機擷取（02:28），`scrollWidth=390` 無橫向溢出；README 標註擷取時間 |
+| README 雙語、架構圖、資料來源授權 | ✅ | GitHub 上實際渲染確認（headless Chrome 擷取 README 頁，mermaid iframe 載入、圖可讀） |
+| `/status` 自動事故紀錄 | ✅ | 線上 `data/incidents.xml`、`archive/v1/incidents.json` 200；單元測試涵蓋中斷補記與即時計算、持續次數、舊格式相容、長期紀錄保留、Atom 跳脫。**目前線上 0 件事故**（5 次收集間隔都 < 60 分），所以尚無真實事故出現在 feed 中 |
+
+本機檢查（2026-10-16 02:4x +08，修正 Codex 發現後）：
+```
+$ npm run lint        → 無錯誤
+$ npm run typecheck   → 無錯誤
+$ npm test
+ Test Files  8 passed (8)
+      Tests  91 passed (91)
+$ npm run build:public
+Public artifacts checked (29 files): no credential markers or key-requiring API URLs.
+$ npm pack -w taiwan-life-data-mcp
+package size: 157.3 kB / unpacked 537.7 kB / total files: 4
+```
+
+Claude Code 實際呼叫（從 Release 安裝，節錄）：
+```
+INIT mcp_servers: [{'name': 'taiwan-life-data', 'status': 'connected'}] model: claude-opus-5-5 cc: 2.1.300
+TOOL_USE: mcp__taiwan-life-data__outdoor_brief {"county": "臺北市", "town": "信義區"}
+TOOL_USE: mcp__taiwan-life-data__reservoirs {"query": "曾文"}
+TOOL_USE: mcp__taiwan-life-data__data_status {}
+TOOL_RESULT: # 出門前：臺北市信義區 | 總結：各項都在一般範圍，正常出門 | ## 天氣警特報【即時】 | 目前沒有生效中的天氣警特報 | 資料時間 10/16 02:27・資料年齡 11 分・本站快照・來源：交通部中央氣象署 W-C0033-001 …
+TOOL_RESULT: # 主要水庫蓄水 | 狀態：即時 | ## 南部 | - 曾文水庫（臺南市）90.1%・有效蓄水 43,831 萬立方公尺・10/16 02:00 …
+RESULT: success（模型照實轉述，並自行指出紫外線快照延遲但工具改讀官方資料為即時）
+```
+
+部署（`./scripts/deploy-gh-pages.sh`，02:27 `b4562ee`、02:38 `811e62b`）與線上端點：
+```
+status: 5 runs, 0 open incidents
+archive incidents 0 kept (0 open)
+200 /   200 /today/   200 /status/   200 /data/incidents.xml   200 /archive/v1/incidents.json   200 /data/catalog.json
+```
+
+獨立複核（Codex，唯讀沙箱，用記憶體內腳本重現）：提出 3 個問題＋1 個保留規則疑慮，主 session 對照程式碼確認全部成立並修正，各有回歸測試，且確認這 4 個測試在修正前失敗、修正後通過（D32）：MCP 等待其他來源時跨過門檻仍下結論、官方讀取失敗被快取、`pickBest` 警特報平手選到較舊讀取（第 2 階段既有）、長事故結案即被移除。Codex 確認 `assess.ts` 搬移前後逐位元組相同、無金鑰外洩路徑。
+
+### 未完成／已知限制
+- **npm registry 尚未發佈**（#5）；`npx -y taiwan-life-data-mcp` 短指令在那之前不能用，README 已並列 Release 指令。
+- **CI 仍未在 GitHub 上跑過**（#1）；MCP 打包步驟只在本機驗證。
+- 收集仍靠部署腳本／不準時的排程；MCP 會自己讀官方資料補新鮮度，但網站上的空品與碳強度仍受限（#3）。
+- 事故功能目前**沒有真實事故樣本**（線上 0 件），正確性只靠單元測試。
+- 只用 Claude Code 驗證過 MCP；Claude Desktop 等其他 client 未測。
+- `/status` 頁本階段加了一段說明，**Lighthouse 未重量**（第 3 階段為 a11y 100）。
+- 用 `claude mcp add` 寫入使用者設定的驗證被權限擋下，改用等效的 `--mcp-config`（同一指令與參數）。
+
+### 下一步（PLAN 已無第 5 階段；建議）
+- 使用者完成 #1（CI＋排程）、#3（Workers Cron）、#5（npm 發佈）後，連續量測 14 天資料年齡，再對外宣稱新鮮度。
+- 競品報告 §8.2：Home Assistant 整合可直接吃同一份 JSON API。
 
 ## 階段 3 今天的台灣＋API — 狀態：完成（「每天自動」待使用者 #1）
 
