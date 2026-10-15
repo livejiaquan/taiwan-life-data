@@ -1,0 +1,523 @@
+{
+ "cwaopendata": {
+  "@xmlns": "urn:cwa:gov:tw:cwacommon:0.1",
+  "Identifier": "a4778855-c2b7-4e81-85fb-cade9e1b5de2",
+  "Sender": "crs@cwa.gov.tw",
+  "Sent": "2026-10-15T22:00:54+8:00",
+  "Status": "Actual",
+  "Scope": "Public",
+  "MsgType": "Issue",
+  "DatasetId": "M-A0085-001",
+  "Source": "CWA",
+  "Resources": {
+   "Resource": {
+    "Metadata": {
+     "ResourceId": "M-A0085-001",
+     "ResourceName": "健康氣象熱傷害指數及警示全台各鄉鎮五日逐三小時預報",
+     "Language": "zh-TW",
+     "IssueTime": "2026-10-16T00:00:00+8:00",
+     "ValidTime": {
+      "StartTime": "2026-10-16T00:00:00+8:00",
+      "EndTime": "2026-10-20T18:00:00+8:00"
+     },
+     "Update": "2026-10-15T22:00:54+8:00",
+     "WeatherElement": {
+      "HeatInjuryIndex": {
+       "@description": "熱傷害指數"
+      },
+      "HeatInjuryWarning": {
+       "@description": "熱傷害警示"
+      }
+     }
+    },
+    "Data": {
+     "Locations": [
+      {
+       "CountyName": "臺北市",
+       "Location": [
+        {
+         "TownName": "松山區",
+         "Geocode": "63000010",
+         "Latitude": "25.05159950",
+         "Longitude": "121.56900020",
+         "Time": [
+          {
+           "IssueTime": "2026-10-16T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "22",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T06:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "26",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T09:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "30",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T12:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "30",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T15:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "28",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T18:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "25",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T21:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          }
+         ]
+        },
+        {
+         "TownName": "信義區",
+         "Geocode": "63000020",
+         "Latitude": "25.03510094",
+         "Longitude": "121.55899810",
+         "Time": [
+          {
+           "IssueTime": "2026-10-16T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "22",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "22",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T06:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "26",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T09:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "30",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T12:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "30",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T15:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "28",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T18:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "25",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T21:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "CountyName": "臺南市",
+       "Location": [
+        {
+         "TownName": "新營區",
+         "Geocode": "67000010",
+         "Latitude": "23.31180000",
+         "Longitude": "120.30799870",
+         "Time": [
+          {
+           "IssueTime": "2026-10-16T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "20",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "19",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T06:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "26",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T09:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "30",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T12:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "31",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T15:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "28",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T18:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "22",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T21:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "20",
+            "HeatInjuryWarning": null
+           }
+          }
+         ]
+        },
+        {
+         "TownName": "鹽水區",
+         "Geocode": "67000020",
+         "Latitude": "23.32180023",
+         "Longitude": "120.25800320",
+         "Time": [
+          {
+           "IssueTime": "2026-10-16T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "20",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T06:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "26",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T09:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "28",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T12:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "29",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T15:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "27",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T18:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T21:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "22",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "CountyName": "連江縣",
+       "Location": [
+        {
+         "TownName": "南竿鄉",
+         "Geocode": "09007010",
+         "Latitude": "26.15419960",
+         "Longitude": "119.92900090",
+         "Time": [
+          {
+           "IssueTime": "2026-10-16T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T06:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "22",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T09:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T12:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "25",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T15:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T18:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T21:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          }
+         ]
+        },
+        {
+         "TownName": "北竿鄉",
+         "Geocode": "09007020",
+         "Latitude": "26.22690010",
+         "Longitude": "119.98899840",
+         "Time": [
+          {
+           "IssueTime": "2026-10-16T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "21",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T06:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "22",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T09:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T12:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "25",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T15:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "24",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T18:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-16T21:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T00:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          },
+          {
+           "IssueTime": "2026-10-17T03:00:00+8:00",
+           "WeatherElements": {
+            "HeatInjuryIndex": "23",
+            "HeatInjuryWarning": null
+           }
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   }
+  }
+ }
+}

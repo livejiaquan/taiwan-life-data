@@ -1,0 +1,37 @@
+{
+  "name": "taiwan-life-data",
+  "private": true,
+  "version": "0.1.0",
+  "description": "台灣生活資料誌：整合氣象署、環境部等官方開放資料的「今天出門要注意什麼」。",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/contract",
+    "packages/collectors",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "collect": "tsx packages/collectors/scripts/collect.ts",
+    "build": "npm run build -w apps/web",
+    "build:public": "tsx scripts/build-public.ts",
+    "probe": "tsx scripts/probe-endpoints.ts",
+    "dev": "npm run dev -w apps/web"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/node": "^24.5.2",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.4.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.1",
+    "vitest": "^3.2.4"
+  }
+}
