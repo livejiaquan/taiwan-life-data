@@ -200,20 +200,34 @@ export function TodayApp() {
     return () => clearInterval(timer);
   }, []);
 
+  const settled = power !== undefined && profile !== undefined && reservoir !== undefined && !refreshing;
+
   return (
     <>
       <TopBar page="today" />
-      <main className="page">
+      <main className="page" id="main">
         <div className="page-head">
           <h1>今天的台灣</h1>
           <p className="lede">電網現在多「乾淨」、主要水庫還有多少水、一天中哪段時間用電最綠。每項都標示官方資料時間；資料過舊就不顯示。</p>
         </div>
-        <div className="tiles tiles-today">
-          <PowerBlock power={power} profile={profile ?? null} now={now} />
-          <ReservoirBlock reservoir={reservoir} refreshing={refreshing} now={now} />
-          {/* Last: its height changes most (sample-count note vs. chart), and nothing sits below it. */}
-          <GreenHoursBlock profile={profile ?? null} loading={profile === undefined} now={now} />
-        </div>
+        {/*
+          The three blocks' loaded heights depend on the data (stale power is short, a WRA
+          re-read turns a short "stale" reservoir block into 20 rows), so nothing is drawn
+          until all of it is in: one taller-than-the-screen placeholder is swapped for new
+          nodes, which is not a layout shift, instead of blocks resizing under each other.
+        */}
+        {settled ? (
+          <div className="tiles tiles-today">
+            <PowerBlock power={power} profile={profile ?? null} now={now} />
+            <ReservoirBlock reservoir={reservoir} refreshing={false} now={now} />
+            {/* Last: its height changes most (sample-count note vs. chart). */}
+            <GreenHoursBlock profile={profile ?? null} loading={false} now={now} />
+          </div>
+        ) : (
+          <div className="tiles-pending" aria-busy="true">
+            <p role="status">{refreshing ? "本站水情快照不夠新，正在直接向水利署確認最新資料…" : "讀取台電與水利署資料中…"}</p>
+          </div>
+        )}
         <Footer sources="台灣電力公司、經濟部水利署">
           <a href={`${REPO}/docs/METHODOLOGY-carbon.md`}>碳強度方法</a>
         </Footer>

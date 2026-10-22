@@ -73,6 +73,54 @@
 
 **不採用**：自訂版面（CARROT，學習成本高、使用者族群不需要）、全幅照片（Yahoo，無授權圖源且拖慢首次繪製）、俏皮文案（CARROT，防災資訊不適合）、動態背景（Pixel Froggy、Apple 動態天空，會干擾警示色的語意）。
 
+## 3b. 每個產品拿來做什麼、哪些功能值得借鏡
+
+| 產品 | 拿來做什麼 | 借鏡（本站有採用 ✅／記下但不採用 ➖） |
+|---|---|---|
+| Apple 天氣 | 每天看天氣；警報推播 | ✅ 警報放最上方獨立一張；✅ 卡片＝圖示＋小標題＋一個判讀詞＋一句白話；➖ 動態天空背景 |
+| Google 天氣 | 搜尋「天氣」直接看答案 | ✅「目前狀況」等大方格 → 五格指數列；✅ 手機單欄、寬螢幕多欄 |
+| CARROT Weather | 重度使用者自訂資料版面 | ✅「一套固定預設版型」＝固定的重點順序（警特報→熱傷害→紫外線→空品→降雨）；➖ 自訂、俏皮文案 |
+| Yahoo 天氣 | 打開就知道今天怎樣 | ✅ 首屏只回答一個問題；➖ 全幅照片 |
+| 氣象署 W | 官方預報、警特報推播 | ✅ 沿用官方用語與等級名稱；✅ 每項連回官方資料集 |
+| tenki.jp 指數 | 看洗衣、穿衣、熱中症等生活判斷 | ✅ 圖示＋等級詞的指數列；✅ 地點切換固定在最上面 |
+| MeteoAlarm | 跨國警報整合 | ✅ 綠黃橙紅色階、語言無關圖示；✅「資料缺漏／過舊」是獨立狀態 |
+| Glance／Dashy | 自架個人首頁 | ✅ 桌面多欄、每塊自帶標題列與狀態；➖ 沒有總結 |
+
+## 3c. 參考或直接使用的開源實作
+
+| 專案 | 授權 | 怎麼用 | 與本站 MIT 相容？ |
+|---|---|---|---|
+| [Radix Colors](https://www.radix-ui.com/colors) 3.0.0 | MIT | **直接使用**：green／amber／orange／red／slate 的第 3、7、9、11、12 階，淺色與深色兩套，當作五級色階（`styles.css` 開頭註明出處） | ✅ |
+| [Lucide](https://lucide.dev)（lucide-static 0.460.0） | ISC | **直接使用**九個圖示的 SVG path（`Shell.tsx` 註明出處），不引入套件，免多一個依賴 | ✅（ISC 與 MIT 同屬寬鬆授權，保留出處即可） |
+| [shadcn/ui](https://ui.shadcn.com/docs/theming) | MIT | **只借命名方式**：語意 token（`--surface`、`--muted`、背景／前景成對），沒有複製程式碼 | ✅ |
+| [Glance](https://github.com/glanceapp/glance) | AGPL-3.0 | **只參考版面概念**（多欄 widget、每塊自帶狀態），沒有複製任何程式碼 | ⚠️ AGPL 程式碼不能併入 MIT 專案，所以只取概念 |
+| Tailwind CSS | MIT | **不採用**：本站只有三頁、一份 CSS，預先產生 HTML 時直接內嵌；多一套建置工具不划算。token 的做法與 Tailwind v4 的 `@theme` 相同（CSS 變數集中定義） | — |
+
+## 4. 一流前端的設計語言，與本站採用的版本
+
+### 4.1 觀察
+
+| 對象 | 值得學的地方 | 出處 |
+|---|---|---|
+| Linear（2024 改版） | 重新定義「層級、平衡、密度」；色彩改用感知均勻的 LCH 產生主題，深淺色對比都提高 | Linear changelog 2024-03-20、〈How we redesigned the Linear UI〉 |
+| Vercel Geist | 高對比、克制；大標題字距收緊；邊框與陰影很淡，靠留白分層 | vercel.com/geist |
+| Stripe | 色彩系統用感知色彩模型挑選，**先保證對比，再談鮮豔**；每個色階都標明可承載文字的位置 | Stripe〈Designing accessible color systems〉(2019) |
+| Apple 天氣 | 一個值配一句白話；卡片大小只有兩種，靠內容而非裝飾區分 | 實際使用 |
+| CARROT | 格狀「一眼摘要」預設版型；資料密集時用一致的小標題列 | MacStories、TapSmart 評測 |
+| Observable | 資料呈現先講結論、再給圖；圖表配色與文字對比分開處理 | observablehq.com 文件與範例（未逐一引用） |
+| Radix Colors | 12 階色階、每一階有固定用途：3 底色、7 邊框、9 實色、11 低對比文字、12 高對比文字 | radix-ui.com/colors〈Understanding the scale〉 |
+
+### 4.2 本站採用的設計語言（已落實在 `apps/web/src/styles.css` 開頭的 token）
+
+- **字體**：內文用系統黑體（PingFang TC／Noto Sans TC／微軟正黑體），不載入網路字型——中文字型檔大，會拖慢 4G 手機首次繪製，也會多一個第三方請求。只有「今日總結」與頁面標題用系統明體（Noto Serif TC／思源宋體／宋體），取「資料誌」的刊物感；沒有明體的裝置退回粗黑體，不影響閱讀。
+- **字級**：以 1rem 為基準、1.2 倍級距（`--t-xs` 0.75 → `--t-lg` 1.44rem），總結大字 `clamp(1.9rem, 7.5vw, 3rem)`。數字一律 `tabular-nums`，時間欄位才會對齊。
+- **色彩**：中性色是本站自己的墨藍（淺色 `#14233a` 字、`#eef2f5` 紙底；深色 `#0c1420` 底、`#e5ecf4` 字），不用純黑純白。狀態色直接用 Radix 的五個色階，並依 Radix 的分工使用：**底色用第 3 階、邊框第 7 階、色條與圓點第 9 階、白底上的字第 11 階、色底上的字第 12 階**。實測淺色模式第 11 階字放在第 3 階底上只有 4.0–4.3:1（不到 AA），所以色底上的字一律改用第 12 階（≥ 10:1）。
+- **間距**：4 px 基準（`--s-1` 0.25rem … `--s-7` 3rem）。
+- **圓角層級**：容器越大圓角越大——總結卡 1.5rem、細節卡 1.1rem、指數格與輸入框 0.75rem、膠囊 999px。避免「所有東西同一個圓角」的樣板感。
+- **陰影**：淺色模式只有細節卡有一層很淡的陰影；深色模式幾乎不用陰影，靠底色明度分層（Geist 的做法）。過舊卡片不加陰影，刻意顯得「沉下去」。
+- **動效**：全站只有一個主動動畫——五項資料都讀完時，總結卡的底色與五格的色條依序（每格延遲 60 ms）轉成當天的等級色，讓「結論出來了」這件事被看見。其餘只有滑鼠移上去的 180 ms 底色變化。`prefers-reduced-motion` 時全部關閉，也不做平滑捲動。
+- **形狀即資訊**：實線＝有結論；**虛線＋斜紋＝不下結論**；頂端色條＝當天最高等級。高對比模式（`forced-colors`）下仍保留虛線。
+
 ## 參考來源
 - Apple 支援：天氣 App 劇烈天氣通知 <https://support.apple.com/guide/weather-mac/apdw91a682e7/mac>
 - 9to5Google：Google Weather Pixel 改版（2023-09、2023-10）<https://9to5google.com/2023/10/19/google-weather-pixel-redesign/>；浮動地圖卡 <https://www.phonearena.com/news/pixel-weather-app-adds-new-floating-card-look_id170906>
@@ -82,3 +130,9 @@
 - tenki.jp 生活指數：神戶新聞 2018 <https://www.kobe-np.co.jp/rentoku/machiaru/201806/0011856272.shtml>
 - MeteoAlarm：<https://en.wikipedia.org/wiki/Meteoalarm>；ARSO 警報圖例 <https://meteo.arso.gov.si/uploads/meteo/help/en/warning_legend.html>
 - Glance <https://github.com/glanceapp/glance>；Dashy widgets <https://dashy.to/docs/widgets>
+- Radix Colors：Understanding the scale <https://www.radix-ui.com/colors/docs/palette-composition/understanding-the-scale>
+- Linear：New Linear UI（2024-03-20）<https://linear.app/changelog/2024-03-20-new-linear-ui>；How we redesigned the Linear UI <https://linear.app/now/how-we-redesigned-the-linear-ui>
+- Vercel Geist <https://vercel.com/geist>
+- Stripe：Designing accessible color systems <https://stripe.com/blog/accessible-color-systems>
+- shadcn/ui Theming <https://ui.shadcn.com/docs/theming>
+- Lucide <https://lucide.dev>

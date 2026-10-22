@@ -12,21 +12,25 @@ const REPO = "https://github.com/livejiaquan/taiwan-life-data";
 export const agoText = (minutes: number | null): string =>
   minutes === null ? "" : minutes < 1 ? "剛剛" : minutes < 60 ? `${minutes} 分鐘前` : minutes < 48 * 60 ? `約 ${Math.round(minutes / 60)} 小時前` : `約 ${Math.round(minutes / 1440)} 天前`;
 
+/**
+ * Icon paths from Lucide (lucide-static 0.460.0, ISC licence, https://lucide.dev):
+ * triangle-alert, thermometer, sun, wind, umbrella, zap, droplet, leaf, activity.
+ */
 const PATHS: Record<string, ReactNode> = {
-  warnings: <><path d="M12 3.5 2.8 19.5h18.4Z" /><path d="M12 9.5v4.5M12 17v.01" /></>,
-  heat: <><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0Z" /><path d="M12 9v7" /></>,
-  uv: <><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" /></>,
-  aqi: <><path d="M3 8.5h11a2.5 2.5 0 1 0-2.5-2.5" /><path d="M3 12.5h15a2.5 2.5 0 1 1-2.5 2.5" /><path d="M3 16.5h7" /></>,
-  rain: <><path d="M3 12a9 9 0 0 1 18 0Z" /><path d="M12 12v6.5a2 2 0 0 1-4 0" /><path d="M12 3v-.5" /></>,
-  power: <path d="M13 2.5 5 13.5h6l-1 8 8-11h-6Z" />,
-  reservoir: <path d="M12 3s-6 6.5-6 11a6 6 0 0 0 12 0c0-4.5-6-11-6-11Z" />,
-  green: <><path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14Z" /><path d="M5 19 13 11" /></>,
-  status: <path d="M3 12h4l2.5-6 5 12 2.5-6h4" />,
+  warnings: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></>,
+  heat: <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z" />,
+  uv: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></>,
+  aqi: <><path d="M12.8 19.6A2 2 0 1 0 14 16H2" /><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2" /><path d="M9.8 4.4A2 2 0 1 1 11 8H2" /></>,
+  rain: <><path d="M22 12a10.06 10.06 1 0 0-20 0Z" /><path d="M12 12v8a2 2 0 0 0 4 0" /><path d="M12 2v1" /></>,
+  power: <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />,
+  reservoir: <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" />,
+  green: <><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" /><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" /></>,
+  status: <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />,
 };
 
 export function Icon({ name }: { name: keyof typeof PATHS }) {
   return (
-    <svg className="icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <svg className="icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       {PATHS[name]}
     </svg>
   );
@@ -81,6 +85,7 @@ const NAV: Array<[Page, string, string]> = [
 export function TopBar({ page }: { page: Page }) {
   return (
     <header className="topbar">
+      <a className="skip" href="#main">跳到主要內容</a>
       <div className="topbar-inner">
         <a className="brand" href={BASE}>
           <span className="brand-mark" aria-hidden="true">台</span>

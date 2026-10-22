@@ -69,7 +69,7 @@ export function StatusApp() {
   return (
     <>
     <TopBar page="status" />
-    <main className="page">
+    <main className="page" id="main">
       <StatusMasthead />
 
       <section aria-labelledby="h-feeds">
