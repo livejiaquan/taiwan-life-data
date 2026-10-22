@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BROWSER_FETCHABLE, rainDatasetId, type BrowserFeedId } from "@taiwan-life-data/collectors";
 import { COUNTIES, dataAgeMinutes, FEEDS, formatTaipei, townsOf, type FeedEnvelope, type FeedId, type FeedStatus, type Town } from "@taiwan-life-data/contract";
 import { assessCard, covers, FAIL_CLOSED, ORDER, SHORT_LABEL, summarize, type CardFeed, type Verdict } from "@taiwan-life-data/assess";
@@ -6,9 +6,8 @@ import { pickBest } from "@taiwan-life-data/assess";
 import { loadSnapshot, readOfficial } from "./load";
 import { placeUrl, readPlace, savePlace } from "./place";
 import { ShareBar } from "./ShareBar";
+import { agoText, Badge, Footer, Icon, TONE_TEXT, TopBar } from "./Shell";
 import type { ShareItem } from "./share";
-
-const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
 
 type AnyEnvelope = FeedEnvelope<unknown>;
 /** undefined = still loading, null = failed. */
@@ -77,19 +76,29 @@ function useFeeds(town: Town | null, now: number): FeedView[] {
 const dataTimeOf = (feed: FeedId, envelope: AnyEnvelope | null) =>
   envelope ? (FEEDS[feed].freshness.basis === "retrievedAt" ? envelope.retrievedAt : envelope.sourceTime) : null;
 
+/** A view's level word and colour class: the tone when there is a verdict, otherwise loading or fail-closed. */
+const levelOf = (view: FeedView): { cls: string; text: string } => {
+  if (view.pending) return { cls: "loading", text: "讀取中" };
+  if (!view.verdict) return { cls: "closed", text: view.status === "stale" ? "過舊" : "讀不到" };
+  return { cls: view.verdict.tone, text: TONE_TEXT[view.verdict.tone] };
+};
+
+const TODAY = new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", month: "long", day: "numeric", weekday: "short" });
+
 function FeedBlock({ view, town, now }: { view: FeedView; town: Town | null; now: number }) {
   const { feed, envelope, status, verdict, pending, refreshing } = view;
   const definition = FEEDS[feed];
   const age = envelope ? dataAgeMinutes(definition.freshness, envelope, now) : null;
   const datasetId = (feed === "rain" && town && rainDatasetId(town.county)) || definition.source.datasetId;
   const sourceUrl = feed === "rain" ? `https://opendata.cwa.gov.tw/dataset/forecast/${datasetId}` : definition.source.url;
+  const level = levelOf(view);
 
   return (
-    <section className={`block tone-${verdict?.tone ?? "unknown"}`} aria-labelledby={`h-${feed}`} aria-busy={pending || refreshing}>
-      <header className="block-head">
+    <section id={`b-${feed}`} className={`tile tone-${level.cls}${feed === "warnings" ? " tile-wide" : ""}`} aria-labelledby={`h-${feed}`} aria-busy={pending || refreshing}>
+      <header className="tile-head">
+        <span className="tile-icon"><Icon name={feed} /></span>
         <h2 id={`h-${feed}`}>{definition.label}</h2>
-        {/* Refresh state lives in the badge so the block height does not change. */}
-        <span className={`badge badge-${status ?? "loading"}`}>{status ? `${STATUS_TEXT[status]}${refreshing ? "・確認中" : ""}` : "讀取中"}</span>
+        <span className="level">{level.text}</span>
       </header>
       {pending && <p className="verdict muted-verdict">讀取中…</p>}
       {!pending && !verdict && status !== "live" && status !== "delayed" && <p className="verdict">{FAIL_CLOSED[status === "stale" ? "stale" : "unavailable"](feed)}</p>}
@@ -100,16 +109,20 @@ function FeedBlock({ view, town, now }: { view: FeedView; town: Town | null; now
         </>
       )}
       {!pending && (
-        <p className="meta">
+        <footer className="tile-foot">
+          {/* Refresh state lives in the badge so the tile height does not change. */}
+          <Badge status={status} refreshing={refreshing} />
           {envelope?.data != null && (
-            <>
-              資料時間 {formatTaipei(dataTimeOf(feed, envelope))}
-              {age !== null && feed !== "warnings" ? `（約 ${age} 分鐘前）` : ""}
-              {envelope.via === "browser" ? "・直接讀官方檔案" : "・本站快照"}・
-            </>
+            <span className="when">
+              資料時間 <time dateTime={dataTimeOf(feed, envelope) ?? undefined}>{formatTaipei(dataTimeOf(feed, envelope))}</time>
+              {age !== null && feed !== "warnings" ? `（${agoText(age)}）` : ""}
+            </span>
           )}
-          <a href={sourceUrl} target="_blank" rel="noreferrer">{definition.source.agency} {datasetId}</a>・{definition.freshness.cadence}
-        </p>
+          <span className="src">
+            {envelope?.data != null && (envelope.via === "browser" ? "直接讀官方檔案，" : "本站快照，")}
+            <a href={sourceUrl} target="_blank" rel="noreferrer">{definition.source.agency} {datasetId}</a>，{definition.freshness.cadence}
+          </span>
+        </footer>
       )}
     </section>
   );
@@ -140,17 +153,6 @@ function Picker({ town, onChange }: { town: Town | null; onChange: (t: Town) => 
         )}
       </label>
     </div>
-  );
-}
-
-export function Masthead({ children }: { children?: ReactNode }) {
-  return (
-    <header className="masthead">
-      <p className="brand">台灣生活資料誌</p>
-      <h1>今天出門前</h1>
-      <p className="lede">選鄉鎮市區，依序看警特報、熱傷害、紫外線、空氣品質、降雨。每項都標示官方資料時間；資料過舊就不下結論。</p>
-      {children}
-    </header>
   );
 }
 
@@ -188,28 +190,58 @@ export function App() {
     [views],
   );
 
+  const loading = views.some((v) => v.pending);
+  const [headline, ...rest] = summary.text.split("；");
+  const closed = views.filter((v) => !v.pending && !v.verdict).length;
+  const freshness = loading
+    ? "正在讀取各項官方資料"
+    : closed
+      ? `${closed} 項資料過舊或讀不到，這幾項不下結論`
+      : `${views.length} 項資料都在時效內`;
+
   return (
-    <main className="page">
-      <Masthead>
-        <Picker town={town} onChange={choose} />
-      </Masthead>
-
-      <div className="card">
-        <div className={`summary tone-${summary.tone}`} role="status" aria-live="polite">
-          <p className="summary-place">{place || "\u00a0"}</p>
-          <p className="summary-text">{summary.text}</p>
+    <>
+      <TopBar page="home" />
+      <main className="page">
+        <div className="intro">
+          <p className="lede">選鄉鎮市區，一張卡看今天出門要注意什麼。每項都標示官方資料時間；資料過舊就不下結論。</p>
+          <Picker town={town} onChange={choose} />
         </div>
-        {views.map((view) => <FeedBlock key={view.feed} view={view} town={town} now={now} />)}
-      </div>
 
-      {town && <ShareBar card={{ place, summary: summary.text, items: shareItems, url: placeUrl(town), now }} ready={views.every((v) => !v.pending)} />}
+        <section className={`hero tone-${loading ? "loading" : summary.tone}`} aria-labelledby="h-place">
+          <div className="hero-top">
+            <h1 id="h-place" className="hero-place">{place || "今天出門前"}</h1>
+            <p className="hero-date">{town ? `${TODAY.format(now)}，出門前` : " "}</p>
+          </div>
+          <div className="hero-answer" role="status" aria-live="polite">
+            <p className="hero-headline">{headline}</p>
+            <p className="hero-rest">{rest.length ? rest.join("；") : " "}</p>
+          </div>
+          <ul className="glance" aria-label="五項重點，點選可看細節">
+            {views.map((v) => {
+              const level = levelOf(v);
+              return (
+                <li key={v.feed}>
+                  <a className={`chip tone-${level.cls}`} href={`#b-${v.feed}`}>
+                    <Icon name={v.feed} />
+                    <span className="chip-label">{SHORT_LABEL[v.feed]}</span>
+                    <span className="chip-level">{level.text}</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+          <p className={`hero-fresh${closed ? " has-closed" : ""}`}>{freshness}</p>
+        </section>
 
-      <footer className="footer">
-        <p>資料來源：交通部中央氣象署、環境部開放資料（政府資料開放授權條款－第1版）。資料過舊或讀不到時一律不下結論。</p>
-        <p>
-          <a href={`${import.meta.env.BASE_URL}today/`}>今天的台灣（電網碳強度、水庫）</a>・<a href={`${import.meta.env.BASE_URL}status/`}>資料狀態與事故紀錄</a>・<a href="https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/API.md">開放 JSON API</a>・<a href="https://github.com/livejiaquan/taiwan-life-data">GitHub 原始碼（MIT）</a>
-        </p>
-      </footer>
-    </main>
+        <div className="tiles">
+          {views.map((view) => <FeedBlock key={view.feed} view={view} town={town} now={now} />)}
+        </div>
+
+        {town && <ShareBar card={{ place, summary: summary.text, items: shareItems, url: placeUrl(town), now }} ready={views.every((v) => !v.pending)} />}
+
+        <Footer sources="交通部中央氣象署、環境部" />
+      </main>
+    </>
   );
 }
