@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { isPowerProfile, type FeedDataMap, type PowerProfile } from "@taiwan-life-data/collectors";
 import { dataAgeMinutes, FEEDS, formatTaipei, type FeedEnvelope } from "@taiwan-life-data/contract";
 import { assessPower, CATEGORY_LABEL, pickBest, REGION_LABEL, usableProfile, reservoirRows, reservoirTone, windowText } from "@taiwan-life-data/assess";
@@ -21,20 +21,27 @@ const fetchProfile = async (name: string): Promise<PowerProfile | null> => {
   }
 };
 
-function Meta({ feed, envelope, now }: { feed: "power" | "reservoir"; envelope: FeedEnvelope<unknown> | null; now: number }) {
+function Meta({ feed, envelope, now, children }: { feed: "power" | "reservoir"; envelope: FeedEnvelope<unknown> | null; now: number; children?: ReactNode }) {
   const def = FEEDS[feed];
   const age = envelope ? dataAgeMinutes(def.freshness, envelope, now) : null;
   return (
-    <p className="meta">
+    <div className="tile-foot">
       {envelope?.data != null && (
-        <>
+        <span className="when">
           資料時間 {formatTaipei(envelope.sourceTime)}
           {age !== null ? `（${agoText(age)}）` : ""}
-          {envelope.via === "browser" ? "，直接讀官方檔案" : "，本站快照"}。
-        </>
+        </span>
       )}
-      <a href={def.source.url} target="_blank" rel="noreferrer">{def.source.agency} data.gov.tw {feed === "power" ? "8931" : "45501"}</a>，{def.freshness.cadence}
-    </p>
+      {/* Provenance and method stay one tap away so the block leads with the answer. */}
+      <details className="src">
+        <summary>資料來源與方法</summary>
+        <p>
+          {envelope?.data != null && (envelope.via === "browser" ? "直接讀官方檔案，" : "本站快照，")}
+          <a href={def.source.url} target="_blank" rel="noreferrer">{def.source.agency} data.gov.tw {feed === "power" ? "8931" : "45501"}</a>，{def.freshness.cadence}。
+        </p>
+        {children}
+      </details>
+    </div>
   );
 }
 
@@ -53,11 +60,24 @@ function PowerBlock({ power, profile, now }: { power: Slot<Env<"power">>; profil
       </header>
       {power === undefined && <p className="verdict muted-verdict">讀取中…</p>}
       {power !== undefined && !verdict && (
-        <p className="verdict">{best?.status === "stale" ? "台電資料過舊，不顯示目前碳強度。" : "目前無法取得台電機組資料。"}</p>
+        <>
+          {/* Same answer slot as the live state, with no number: the page keeps one focal point. */}
+          <p className="answer answer-closed" aria-hidden="true">
+            <span className="answer-label">目前每度電約</span>
+            <span className="answer-num">—</span>
+            <span className="answer-unit">公克 CO₂e</span>
+          </p>
+          <p className="verdict">{best?.status === "stale" ? "台電資料過舊，不顯示目前碳強度。" : "目前無法取得台電機組資料。"}</p>
+        </>
       )}
       {verdict && usable && (
         <>
-          <p className="verdict">{verdict.headline}</p>
+          {/* The number is the answer; the sentence form stays for screen readers. */}
+          <p className="answer" aria-label={verdict.headline}>
+            <span className="answer-label" aria-hidden="true">目前每度電約</span>
+            <span className="answer-num" aria-hidden="true">{usable.intensity.lifecycle}</span>
+            <span className="answer-unit" aria-hidden="true">公克 CO₂e</span>
+          </p>
           <ul className="details">{verdict.details.map((d) => <li key={d}>{d}</li>)}</ul>
           <ul className="mix" aria-label="各能源別發電占比">
             {usable.categories.filter((c) => c.mw > 0).map((c) => (
@@ -71,13 +91,11 @@ function PowerBlock({ power, profile, now }: { power: Slot<Env<"power">>; profil
         </>
       )}
       {power !== undefined && (
-        <>
-          <Meta feed="power" envelope={best?.envelope ?? power} now={now} />
-          {/* Rendered only after loading: drawn earlier it would be pushed down (layout shift). */}
-          <p className="meta">
+        <Meta feed="power" envelope={best?.envelope ?? power} now={now}>
+          <p>
             生命週期係數（IPCC 2014 等，依 Electricity Maps 整理），儲能不計入。<a href={`${REPO}/docs/METHODOLOGY-carbon.md`}>計算方法與係數出處</a>
           </p>
-        </>
+        </Meta>
       )}
     </section>
   );
@@ -167,8 +185,11 @@ function ReservoirBlock({ reservoir, refreshing, now }: { reservoir: Slot<Env<"r
             </ul>
           </div>
         ))}
-      {reservoir !== undefined && <Meta feed="reservoir" envelope={best?.envelope ?? reservoir} now={now} />}
-      <p className="meta">蓄水率＝有效蓄水量 ÷ 有效容量，超過 100% 照官方數字呈現。蓄水率不等於限水；是否限水以水利署與自來水公司公告為準。</p>
+      {reservoir !== undefined && (
+        <Meta feed="reservoir" envelope={best?.envelope ?? reservoir} now={now}>
+          <p>蓄水率＝有效蓄水量 ÷ 有效容量，超過 100% 照官方數字呈現。蓄水率不等於限水；是否限水以水利署與自來水公司公告為準。</p>
+        </Meta>
+      )}
     </section>
   );
 }
@@ -208,7 +229,7 @@ export function TodayApp() {
       <main className="page" id="main">
         <div className="page-head">
           <h1>今天的台灣</h1>
-          <p className="lede">電網現在多「乾淨」、主要水庫還有多少水、一天中哪段時間用電最綠。每項都標示官方資料時間；資料過舊就不顯示。</p>
+          <p className="lede">電網現在多乾淨、主要水庫還有多少水、一天中何時用電最綠。資料過舊就不顯示。</p>
         </div>
         {/*
           The three blocks' loaded heights depend on the data (stale power is short, a WRA
