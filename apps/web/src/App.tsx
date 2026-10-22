@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { BROWSER_FETCHABLE, rainDatasetId, type BrowserFeedId } from "@taiwan-life-data/collectors";
 import { COUNTIES, dataAgeMinutes, FEEDS, formatTaipei, townsOf, type FeedEnvelope, type FeedId, type FeedStatus, type Town } from "@taiwan-life-data/contract";
 import { assessCard, covers, FAIL_CLOSED, ORDER, SHORT_LABEL, summarize, type CardFeed, type Verdict } from "@taiwan-life-data/assess";
@@ -61,10 +61,19 @@ function useFeeds(town: Town | null, now: number): FeedView[] {
     if (!town) return { feed, pending: true, refreshing: false, envelope: null, status: null, verdict: null };
     const snapshot = snapshots[feed];
     const fromOfficial = official[officialKey(feed, town.county)];
-    const loading = fromOfficial === "loading";
-    const candidates = [snapshot, loading ? null : fromOfficial].filter((e) => covers(feed, e, town));
+    // Also "loading" for the one render between the snapshot arriving and the effect above
+    // starting the official read, so the card never flashes "unavailable" in between.
+    const readStarting =
+      fromOfficial === undefined && snapshot !== undefined && BROWSER_FETCHABLE.includes(feed) &&
+      !(covers(feed, snapshot, town) && pickBest([snapshot], now)?.status === "live");
+    const loading = fromOfficial === "loading" || readStarting;
+    const candidates = [snapshot, fromOfficial === "loading" ? null : fromOfficial].filter((e) => covers(feed, e, town));
     const best = pickBest(candidates, now);
-    const pending = snapshot === undefined || (!best && loading);
+    // A stale snapshot that is being re-read from the official file stays "loading" rather
+    // than showing a fail-closed card for a second, so the summary does not flip twice.
+    const usable = best?.status === "live" || best?.status === "delayed";
+    const pending = snapshot === undefined || (!usable && loading);
+    if (pending) return { feed, pending, refreshing: false, envelope: null, status: null, verdict: null };
     if (!best) {
       return { feed, pending, refreshing: false, envelope: snapshot ?? null, status: pending ? null : "unavailable", verdict: null };
     }
@@ -191,8 +200,10 @@ export function App() {
   );
 
   const loading = views.some((v) => v.pending);
-  const [headline, ...rest] = summary.text.split("；");
   const closed = views.filter((v) => !v.pending && !v.verdict).length;
+  // With nothing known, "已知項目沒有需要特別留意的" set in display type would read as an all-clear.
+  const [headline, ...rest] =
+    !loading && closed === views.length ? ["目前讀不到資料，不下結論", "請以中央氣象署、環境部網站為準"] : summary.text.split("；");
   const freshness = loading
     ? "正在讀取各項官方資料"
     : closed
@@ -202,7 +213,7 @@ export function App() {
   return (
     <>
       <TopBar page="home" />
-      <main className="page">
+      <main className="page" id="main">
         <div className="intro">
           <p className="lede">選鄉鎮市區，一張卡看今天出門要注意什麼。每項都標示官方資料時間；資料過舊就不下結論。</p>
           <Picker town={town} onChange={choose} />
@@ -218,11 +229,11 @@ export function App() {
             <p className="hero-rest">{rest.length ? rest.join("；") : " "}</p>
           </div>
           <ul className="glance" aria-label="五項重點，點選可看細節">
-            {views.map((v) => {
+            {views.map((v, i) => {
               const level = levelOf(v);
               return (
                 <li key={v.feed}>
-                  <a className={`chip tone-${level.cls}`} href={`#b-${v.feed}`}>
+                  <a className={`chip tone-${level.cls}`} href={`#b-${v.feed}`} style={{ "--i": i } as CSSProperties}>
                     <Icon name={v.feed} />
                     <span className="chip-label">{SHORT_LABEL[v.feed]}</span>
                     <span className="chip-level">{level.text}</span>
