@@ -127,10 +127,14 @@ function FeedBlock({ view, town, now }: { view: FeedView; town: Town | null; now
               {age !== null && feed !== "warnings" ? `（${agoText(age)}）` : ""}
             </span>
           )}
-          <span className="src">
-            {envelope?.data != null && (envelope.via === "browser" ? "直接讀官方檔案，" : "本站快照，")}
-            <a href={sourceUrl} target="_blank" rel="noreferrer">{definition.source.agency} {datasetId}</a>，{definition.freshness.cadence}
-          </span>
+          {/* Provenance stays one tap away so the card leads with the verdict and its time. */}
+          <details className="src">
+            <summary>資料來源</summary>
+            <p>
+              {envelope?.data != null && (envelope.via === "browser" ? "直接讀官方檔案，" : "本站快照，")}
+              <a href={sourceUrl} target="_blank" rel="noreferrer">{definition.source.agency} {datasetId}</a>，{definition.freshness.cadence}
+            </p>
+          </details>
         </footer>
       )}
     </section>
