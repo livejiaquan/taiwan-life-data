@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Footer, STATUS_TEXT, TopBar } from "../Shell";
 import { BROWSER_FETCHABLE, parseFeedEnvelope } from "@taiwan-life-data/collectors";
-import { currentStatus, dataAgeMinutes, FEEDS, formatTaipei, INCIDENT_KIND_TEXT, incidentKey, incidentLabel, isStatusDoc, openCollectGap, percentile, sortIncidents, type FeedEnvelope, type FeedId, type StatusDoc } from "@taiwan-life-data/contract";
+import { currentStatus, dataAgeMinutes, FEEDS, formatTaipei, INCIDENT_KIND_TEXT, incidentKey, incidentLabel, isStatusDoc, openCollectGap, percentile, sortIncidents, type FeedEnvelope, type FeedId, type FeedStatus, type StatusDoc } from "@taiwan-life-data/contract";
 
 const FEED_IDS = Object.keys(FEEDS) as FeedId[];
 
@@ -38,7 +38,7 @@ function StatusMasthead() {
   return (
     <div className="page-head">
       <h1>資料狀態</h1>
-      <p className="lede">每個資料來源目前多新、最近一次成功收集是什麼時候、出過哪些狀況。本頁由每次收集自動產生，不經人工編修。</p>
+      <p className="lede">各資料來源多新、最近何時收集成功、出過哪些狀況；每次收集自動產生。</p>
     </div>
   );
 }
@@ -65,12 +65,27 @@ export function StatusApp() {
   const gap = doc ? openCollectGap(doc, now) : null;
   const incidents = doc ? sortIncidents(gap ? [gap, ...doc.incidents] : doc.incidents) : [];
   const openCount = incidents.filter((i) => i.endedAt === null).length;
+  const statuses = FEED_IDS.map((feed) => { const env = envelopes[feed]; return env === undefined ? null : env ? currentStatus(env, now) : "unavailable"; });
+  const allLoaded = statuses.every((s) => s !== null);
+  const countOf = (status: FeedStatus) => statuses.filter((s) => s === status).length;
+  const others = (["delayed", "stale", "unavailable"] as const).filter((s) => countOf(s)).map((s) => `${STATUS_TEXT[s]} ${countOf(s)} 項`);
 
   return (
     <>
     <TopBar page="status" />
     <main className="page" id="main">
       <StatusMasthead />
+      {/* The page's answer: how many sources are live right now. */}
+      <section className="answer-block" aria-label="目前狀態">
+        <p className="answer" aria-live="polite">
+          <span className="answer-num">{allLoaded ? countOf("live") : "—"}</span>
+          <span className="answer-unit">／{FEED_IDS.length} 項資料即時</span>
+        </p>
+        <p className="answer-sub">
+          {allLoaded ? (others.length ? others.join("、") : "全部即時") : "讀取中…"}
+          {doc && (openCount ? `；進行中事故 ${openCount} 件` : "；沒有進行中的事故")}
+        </p>
+      </section>
 
       <section aria-labelledby="h-feeds">
         <h2 id="h-feeds" className="section-title">各資料來源</h2>
