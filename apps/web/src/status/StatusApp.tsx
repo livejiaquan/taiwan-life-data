@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { Footer, STATUS_TEXT, TopBar } from "../Shell";
 import { BROWSER_FETCHABLE, parseFeedEnvelope } from "@taiwan-life-data/collectors";
-import { currentStatus, dataAgeMinutes, FEEDS, formatTaipei, INCIDENT_KIND_TEXT, incidentKey, incidentLabel, isStatusDoc, openCollectGap, percentile, sortIncidents, type FeedEnvelope, type FeedId, type FeedStatus, type StatusDoc } from "@taiwan-life-data/contract";
+import { currentStatus, dataAgeMinutes, FEEDS, formatTaipei, INCIDENT_KIND_TEXT, incidentKey, incidentLabel, isStatusDoc, openCollectGap, percentile, sortIncidents, type FeedEnvelope, type FeedId, type StatusDoc } from "@taiwan-life-data/contract";
 
 const FEED_IDS = Object.keys(FEEDS) as FeedId[];
-const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
 
 const minutes = (n: number | null | undefined) =>
   n == null ? "—" : n < 60 ? `${n} 分` : n < 48 * 60 ? `${Math.floor(n / 60)} 小時 ${n % 60} 分` : `${Math.round(n / 1440)} 天`;
@@ -36,11 +36,10 @@ const feedStats = (doc: StatusDoc, feed: FeedId) => {
 
 function StatusMasthead() {
   return (
-    <header className="masthead">
-      <p className="brand"><a href={import.meta.env.BASE_URL}>台灣生活資料誌</a></p>
+    <div className="page-head">
       <h1>資料狀態</h1>
       <p className="lede">每個資料來源目前多新、最近一次成功收集是什麼時候、出過哪些狀況。本頁由每次收集自動產生，不經人工編修。</p>
-    </header>
+    </div>
   );
 }
 
@@ -68,7 +67,9 @@ export function StatusApp() {
   const openCount = incidents.filter((i) => i.endedAt === null).length;
 
   return (
-    <main className="page">
+    <>
+    <TopBar page="status" />
+    <main className="page" id="main">
       <StatusMasthead />
 
       <section aria-labelledby="h-feeds">
@@ -81,8 +82,8 @@ export function StatusApp() {
             const health = doc?.feeds[feed];
             const fs = doc ? feedStats(doc, feed) : null;
             return (
-              <article key={feed} className="block status-card" aria-labelledby={`s-${feed}`}>
-                <header className="block-head">
+              <article key={feed} className={`tile status-card tone-${status === "live" ? "ok" : status === "delayed" ? "notice" : status ? "closed" : "loading"}`} aria-labelledby={`s-${feed}`}>
+                <header className="tile-head">
                   <h3 id={`s-${feed}`}>{def.label}</h3>
                   <span className={`badge badge-${status ?? "loading"}`}>{status ? STATUS_TEXT[status] : "讀取中"}</span>
                 </header>
@@ -147,10 +148,13 @@ export function StatusApp() {
         )}
       </section>
 
-      <footer className="footer">
-        <p>判定規則：沒有資料 → 無法取得；時間缺失、無法解析或在未來 → 過舊；超過門檻 → 延遲／過舊。過舊或無法取得時首頁不下結論。</p>
-        <p><a href={import.meta.env.BASE_URL}>回首頁</a>・<a href={`${import.meta.env.BASE_URL}data/status.json`}>status.json</a>・<a href={`${import.meta.env.BASE_URL}data/incidents.xml`}>事故 Atom feed</a>・<a href="https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/DECISIONS.md">技術決策與實測</a></p>
-      </footer>
+      <p className="rules">判定規則：沒有資料 → 無法取得；時間缺失、無法解析或在未來 → 過舊；超過門檻 → 延遲／過舊。過舊或無法取得時首頁不下結論。</p>
+      <Footer sources="交通部中央氣象署、環境部、台灣電力公司、經濟部水利署">
+        <a href={`${import.meta.env.BASE_URL}data/status.json`}>status.json</a>
+        <a href={`${import.meta.env.BASE_URL}data/incidents.xml`}>事故 Atom feed</a>
+        <a href="https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/DECISIONS.md">技術決策與實測</a>
+      </Footer>
     </main>
+    </>
   );
 }

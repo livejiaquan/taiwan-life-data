@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { isPowerProfile, type FeedDataMap, type PowerProfile } from "@taiwan-life-data/collectors";
-import { dataAgeMinutes, FEEDS, formatTaipei, type FeedEnvelope, type FeedStatus } from "@taiwan-life-data/contract";
+import { dataAgeMinutes, FEEDS, formatTaipei, type FeedEnvelope } from "@taiwan-life-data/contract";
 import { assessPower, CATEGORY_LABEL, pickBest, REGION_LABEL, usableProfile, reservoirRows, reservoirTone, windowText } from "@taiwan-life-data/assess";
 import { loadSnapshot, readOfficial } from "../load";
+import { agoText, Badge, Footer, Icon, TopBar } from "../Shell";
 
-const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
 const REPO = "https://github.com/livejiaquan/taiwan-life-data/blob/main";
 
 type Env<K extends keyof FeedDataMap> = FeedEnvelope<FeedDataMap[K]>;
@@ -21,10 +21,6 @@ const fetchProfile = async (name: string): Promise<PowerProfile | null> => {
   }
 };
 
-function Badge({ status, refreshing }: { status: FeedStatus | null; refreshing?: boolean }) {
-  return <span className={`badge badge-${status ?? "loading"}`}>{status ? `${STATUS_TEXT[status]}${refreshing ? "・確認中" : ""}` : "讀取中"}</span>;
-}
-
 function Meta({ feed, envelope, now }: { feed: "power" | "reservoir"; envelope: FeedEnvelope<unknown> | null; now: number }) {
   const def = FEEDS[feed];
   const age = envelope ? dataAgeMinutes(def.freshness, envelope, now) : null;
@@ -33,11 +29,11 @@ function Meta({ feed, envelope, now }: { feed: "power" | "reservoir"; envelope: 
       {envelope?.data != null && (
         <>
           資料時間 {formatTaipei(envelope.sourceTime)}
-          {age !== null ? `（約 ${age} 分鐘前）` : ""}
-          {envelope.via === "browser" ? "・直接讀官方檔案" : "・本站快照"}・
+          {age !== null ? `（${agoText(age)}）` : ""}
+          {envelope.via === "browser" ? "，直接讀官方檔案" : "，本站快照"}。
         </>
       )}
-      <a href={def.source.url} target="_blank" rel="noreferrer">{def.source.agency} data.gov.tw {feed === "power" ? "8931" : "45501"}</a>・{def.freshness.cadence}
+      <a href={def.source.url} target="_blank" rel="noreferrer">{def.source.agency} data.gov.tw {feed === "power" ? "8931" : "45501"}</a>，{def.freshness.cadence}
     </p>
   );
 }
@@ -49,8 +45,9 @@ function PowerBlock({ power, profile, now }: { power: Slot<Env<"power">>; profil
   const total = usable ? usable.categories.reduce((s, c) => s + Math.max(0, c.mw), 0) : 0;
   return (
     // While loading, reserve the loaded height (measured at 360–412 px) so nothing below shifts.
-    <section className={`block tone-${verdict?.tone ?? "unknown"}${power === undefined ? " reserve-power" : ""}`} aria-labelledby="h-power" aria-busy={power === undefined}>
-      <header className="block-head">
+    <section className={`tile tone-${verdict ? verdict.tone : power === undefined ? "loading" : "closed"}${power === undefined ? " reserve-power" : ""}`} aria-labelledby="h-power" aria-busy={power === undefined}>
+      <header className="tile-head">
+        <span className="tile-icon"><Icon name="power" /></span>
         <h2 id="h-power">電網碳強度</h2>
         <Badge status={power === undefined ? null : (best?.status ?? "unavailable")} />
       </header>
@@ -92,8 +89,9 @@ function GreenHoursBlock({ profile, loading, now }: { profile: PowerProfile | nu
   const min = Math.min(...values);
   const span = Math.max(1, Math.max(...values) - min);
   return (
-    <section className={`block tone-${ready ? "ok" : "unknown"}`} aria-labelledby="h-green" aria-busy={loading}>
-      <header className="block-head">
+    <section className={`tile tone-${ready ? "ok" : "unknown"}`} aria-labelledby="h-green" aria-busy={loading}>
+      <header className="tile-head">
+        <span className="tile-icon"><Icon name="green" /></span>
         <h2 id="h-green">綠電時段</h2>
         <span className="badge">{ready ? "最近 14 天" : loading ? "讀取中" : "樣本不足"}</span>
       </header>
@@ -139,8 +137,9 @@ function ReservoirBlock({ reservoir, refreshing, now }: { reservoir: Slot<Env<"r
   const usable = best && (best.status === "live" || best.status === "delayed") ? best.envelope.data! : null;
   const regions = usable ? reservoirRows(usable, now) : null;
   return (
-    <section className={`block tone-unknown${reservoir === undefined ? " reserve-reservoir" : ""}`} aria-labelledby="h-reservoir" aria-busy={reservoir === undefined || refreshing}>
-      <header className="block-head">
+    <section className={`tile tone-${regions ? "unknown" : reservoir === undefined ? "loading" : "closed"}${reservoir === undefined ? " reserve-reservoir" : ""}`} aria-labelledby="h-reservoir" aria-busy={reservoir === undefined || refreshing}>
+      <header className="tile-head">
+        <span className="tile-icon"><Icon name="reservoir" /></span>
         <h2 id="h-reservoir">主要水庫蓄水率</h2>
         <Badge status={reservoir === undefined ? null : (best?.status ?? "unavailable")} refreshing={refreshing} />
       </header>
@@ -201,25 +200,38 @@ export function TodayApp() {
     return () => clearInterval(timer);
   }, []);
 
+  const settled = power !== undefined && profile !== undefined && reservoir !== undefined && !refreshing;
+
   return (
-    <main className="page">
-      <header className="masthead">
-        <p className="brand"><a href={import.meta.env.BASE_URL}>台灣生活資料誌</a></p>
-        <h1>今天的台灣</h1>
-        <p className="lede">電網現在多「乾淨」、主要水庫還有多少水、一天中哪段時間用電最綠。每項都標示官方資料時間；資料過舊就不顯示。</p>
-      </header>
-      <div className="card">
-        <PowerBlock power={power} profile={profile ?? null} now={now} />
-        <ReservoirBlock reservoir={reservoir} refreshing={refreshing} now={now} />
-        {/* Last: its height changes most (sample-count note vs. chart), and nothing sits below it. */}
-        <GreenHoursBlock profile={profile ?? null} loading={profile === undefined} now={now} />
-      </div>
-      <footer className="footer">
-        <p>資料來源：台灣電力公司、經濟部水利署開放資料（政府資料開放授權條款－第1版）。本站不代表各機關立場。</p>
-        <p>
-          <a href={import.meta.env.BASE_URL}>出門前</a>・<a href={`${import.meta.env.BASE_URL}status/`}>資料狀態</a>・<a href={`${REPO}/docs/API.md`}>開放 JSON API</a>・<a href={`${REPO}/docs/METHODOLOGY-carbon.md`}>碳強度方法</a>
-        </p>
-      </footer>
-    </main>
+    <>
+      <TopBar page="today" />
+      <main className="page" id="main">
+        <div className="page-head">
+          <h1>今天的台灣</h1>
+          <p className="lede">電網現在多「乾淨」、主要水庫還有多少水、一天中哪段時間用電最綠。每項都標示官方資料時間；資料過舊就不顯示。</p>
+        </div>
+        {/*
+          The three blocks' loaded heights depend on the data (stale power is short, a WRA
+          re-read turns a short "stale" reservoir block into 20 rows), so nothing is drawn
+          until all of it is in: one taller-than-the-screen placeholder is swapped for new
+          nodes, which is not a layout shift, instead of blocks resizing under each other.
+        */}
+        {settled ? (
+          <div className="tiles tiles-today">
+            <PowerBlock power={power} profile={profile ?? null} now={now} />
+            <ReservoirBlock reservoir={reservoir} refreshing={false} now={now} />
+            {/* Last: its height changes most (sample-count note vs. chart). */}
+            <GreenHoursBlock profile={profile ?? null} loading={false} now={now} />
+          </div>
+        ) : (
+          <div className="tiles-pending" aria-busy="true">
+            <p role="status">{refreshing ? "本站水情快照不夠新，正在直接向水利署確認最新資料…" : "讀取台電與水利署資料中…"}</p>
+          </div>
+        )}
+        <Footer sources="台灣電力公司、經濟部水利署">
+          <a href={`${REPO}/docs/METHODOLOGY-carbon.md`}>碳強度方法</a>
+        </Footer>
+      </main>
+    </>
   );
 }
