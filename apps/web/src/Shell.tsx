@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { Activity, Droplet, Leaf, Sun, SunMoon, Thermometer, TriangleAlert, Umbrella, Wind, Zap, type LucideIcon } from "lucide-react";
 import type { FeedStatus } from "@taiwan-life-data/contract";
 
 export const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed: "延遲", stale: "過舊", unavailable: "無法取得" };
@@ -6,32 +7,35 @@ export const STATUS_TEXT: Record<FeedStatus, string> = { live: "即時", delayed
 export const TONE_TEXT = { ok: "正常", notice: "留意", warn: "注意", danger: "警戒", unknown: "無法判斷" } as const;
 
 const BASE = import.meta.env.BASE_URL;
-const REPO = "https://github.com/livejiaquan/taiwan-life-data";
 
 /** "約 5 小時前" reads better than "337 分鐘前". */
 export const agoText = (minutes: number | null): string =>
   minutes === null ? "" : minutes < 1 ? "剛剛" : minutes < 60 ? `${minutes} 分鐘前` : minutes < 48 * 60 ? `約 ${Math.round(minutes / 60)} 小時前` : `約 ${Math.round(minutes / 1440)} 天前`;
 
 /**
- * Icon paths from Lucide (lucide-static 0.460.0, ISC licence, https://lucide.dev):
- * triangle-alert, thermometer, sun, wind, umbrella, zap, droplet, leaf, activity.
+ * Every UI icon is Lucide (lucide-react, ISC licence, https://lucide.dev), drawn the same
+ * way: 24px grid, 1.75 stroke, round caps and joins, currentColor. Sizes are 16 / 20 / 24 only.
  */
-const PATHS: Record<string, ReactNode> = {
-  warnings: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></>,
-  heat: <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z" />,
-  uv: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></>,
-  aqi: <><path d="M12.8 19.6A2 2 0 1 0 14 16H2" /><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2" /><path d="M9.8 4.4A2 2 0 1 1 11 8H2" /></>,
-  rain: <><path d="M22 12a10.06 10.06 1 0 0-20 0Z" /><path d="M12 12v8a2 2 0 0 0 4 0" /><path d="M12 2v1" /></>,
-  power: <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />,
-  reservoir: <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" />,
-  green: <><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" /><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" /></>,
-  status: <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />,
-};
+const ICONS = { warnings: TriangleAlert, heat: Thermometer, uv: Sun, aqi: Wind, rain: Umbrella, power: Zap, reservoir: Droplet, green: Leaf, status: Activity } satisfies Record<string, LucideIcon>;
 
-export function Icon({ name }: { name: keyof typeof PATHS }) {
+export function Icon({ name, size = 24 }: { name: keyof typeof ICONS; size?: 16 | 20 | 24 }) {
+  const Glyph = ICONS[name];
+  return <Glyph className="icon" size={size} strokeWidth={1.75} aria-hidden="true" focusable="false" />;
+}
+
+/**
+ * The brand mark, shared by every site in this series: a rounded square (radius 22% of its
+ * side) in the site's accent, with one white Lucide icon at 58% of the side. Same drawing as
+ * public/brand/mark.svg (favicon) and docs/brand/.
+ */
+export function BrandMark({ size = 32 }: { size?: number }) {
   return (
-    <svg className="icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-      {PATHS[name]}
+    <svg className="brand-mark" viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" focusable="false">
+      <rect width="64" height="64" rx="14.08" fill="var(--brand-accent)" />
+      <g transform="translate(13.44 13.44) scale(1.5467)" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z" />
+      </g>
     </svg>
   );
 }
@@ -66,10 +70,7 @@ function ThemeToggle() {
   };
   return (
     <button className="theme-toggle" type="button" onClick={cycle} aria-label={`外觀：${THEME_TEXT[theme]}（按一下切換）`}>
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" />
-      </svg>
+      <SunMoon className="icon" size={20} strokeWidth={1.75} aria-hidden="true" focusable="false" />
       <span className="theme-text">{THEME_TEXT[theme]}</span>
     </button>
   );
@@ -89,8 +90,11 @@ export function TopBar() {
       <a className="skip" href="#main">跳到主要內容</a>
       <div className="topbar-inner">
         <a className="brand" href={BASE}>
-          <span className="brand-mark" aria-hidden="true">台</span>
-          台灣生活資料誌
+          <BrandMark />
+          <span className="brand-words">
+            <span className="brand-name">台灣生活資料誌</span>
+            <span className="brand-sub">官方開放資料，出門前看一眼</span>
+          </span>
         </a>
         <ThemeToggle />
       </div>
@@ -122,10 +126,13 @@ export function Footer({ sources, children }: { sources: string; children?: Reac
       <p>資料來源：{sources}開放資料（政府資料開放授權條款－第1版）。本站不代表各機關立場；警特報與防災資訊以官方發布為準。資料過舊或讀不到時一律不下結論。</p>
       <p className="footer-links">
         {children}
-        <a href={`${REPO}/blob/main/docs/API.md`}>開放 JSON API</a>
-        <a href={`${REPO}/tree/main/packages/mcp-server`}>MCP server</a>
-        <a href={REPO}>GitHub 原始碼（MIT）</a>
+        <a href={`${BASE}data/catalog.json`}>開放 JSON API（目錄）</a>
+        <a href={`${BASE}status/`}>資料狀態與方法</a>
       </p>
+      <p className="footer-mcp">
+        在 Claude 等 MCP client 裡用：<code>npx -y taiwan-life-data-mcp</code>
+      </p>
+      <p className="footer-copy">© 2026 台灣生活資料誌</p>
     </footer>
   );
 }
