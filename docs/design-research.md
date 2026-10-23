@@ -156,6 +156,15 @@ Electricity Maps 擋下 headless 瀏覽器（回傳驗證頁），沒有量到�
 - **間距**：只用 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64。
 - **首屏密度**：各頁導言縮成手機 2 行內；資料集與方法說明收進每張卡的「資料來源」展開區，卡片上只留狀態與資料時間。
 
+## 6. 第五輪：照 Yr.no 抄版面（2026-10-23）
+
+前幾輪的研究沒有任何參考截圖，版面是憑印象寫的。這一輪改成先截圖、從 DOM 量 token，再照著抄：
+
+- 參考頁：Yr.no 臺北預報首頁 <https://www.yr.no/en/forecast/daily-table/2-1668341/Taiwan/Taipei>。截圖放在 `docs/references/ref-*.png`，量到的數字在 [`docs/references/tokens.md`](references/tokens.md)。
+- 照抄的部分：淡色頁底加白卡（圓角 8、陰影幾乎看不見、沒有框線）、1280px 容器、頁首「品牌左、動作右」、地名 h1 加小字副標再接分頁列、摘要卡佔 8/12 寬、摘要卡和列表之間約 80px 留白、欄名列加滿版白列（列距 8）、淡藍按鈕、手機版卡片離邊 8px 加淡色漸層摘要卡。
+- 保留的部分：總結句是唯一焦點（64／40px，依等級上色，就像 Yr 幫溫度上色）、斜紋加虛線的「過期不下結論」、資料時間列、API 與 MCP 都不動。
+- 並排比較：`docs/references/side-by-side-{1440,390}.png`，以及模糊版 `*-squint.png`。
+
 ## 參考來源
 - Apple 支援：天氣 App 劇烈天氣通知 <https://support.apple.com/guide/weather-mac/apdw91a682e7/mac>
 - 9to5Google：Google Weather Pixel 改版（2023-09、2023-10）<https://9to5google.com/2023/10/19/google-weather-pixel-redesign/>；浮動地圖卡 <https://www.phonearena.com/news/pixel-weather-app-adds-new-floating-card-look_id170906>

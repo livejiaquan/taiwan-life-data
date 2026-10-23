@@ -6,7 +6,7 @@ import { pickBest } from "@taiwan-life-data/assess";
 import { loadSnapshot, readOfficial } from "./load";
 import { placeUrl, readPlace, savePlace } from "./place";
 import { ShareBar } from "./ShareBar";
-import { agoText, Badge, Footer, Icon, TONE_TEXT, TopBar } from "./Shell";
+import { agoText, Badge, Footer, Icon, PageHead, TONE_TEXT, TopBar } from "./Shell";
 import type { ShareItem } from "./share";
 
 type AnyEnvelope = FeedEnvelope<unknown>;
@@ -103,7 +103,7 @@ function FeedBlock({ view, town, now }: { view: FeedView; town: Town | null; now
   const level = levelOf(view);
 
   return (
-    <section id={`b-${feed}`} className={`tile tone-${level.cls}${feed === "warnings" ? " tile-wide" : ""}`} aria-labelledby={`h-${feed}`} aria-busy={pending || refreshing}>
+    <section id={`b-${feed}`} className={`tile row tone-${level.cls}${feed === "warnings" ? " tile-wide" : ""}`} aria-labelledby={`h-${feed}`} aria-busy={pending || refreshing}>
       <header className="tile-head">
         <span className="tile-icon"><Icon name={feed} /></span>
         <h2 id={`h-${feed}`}>{definition.label}</h2>
@@ -146,7 +146,7 @@ function Picker({ town, onChange }: { town: Town | null; onChange: (t: Town) => 
   return (
     <div className="picker">
       <label>
-        <span>縣市</span>
+        <span className="visually-hidden">縣市</span>
         {town ? (
           <select value={town.county} onChange={(e) => onChange(townsOf(e.target.value)[0]!)}>
             {COUNTIES.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -156,7 +156,7 @@ function Picker({ town, onChange }: { town: Town | null; onChange: (t: Town) => 
         )}
       </label>
       <label>
-        <span>鄉鎮市區</span>
+        <span className="visually-hidden">鄉鎮市區</span>
         {town ? (
           <select value={town.geocode} onChange={(e) => onChange(townsOf(town.county).find((t) => t.geocode === e.target.value)!)}>
             {townsOf(town.county).map((t) => <option key={t.geocode} value={t.geocode}>{t.town}</option>)}
@@ -216,21 +216,18 @@ export function App() {
 
   return (
     <>
-      <TopBar page="home" />
+      <TopBar />
       <main className="page" id="main">
-        <div className="intro">
-          <p className="lede">選鄉鎮市區，一張卡看今天出門要注意什麼。每項都標示官方資料時間；資料過舊就不下結論。</p>
+        <PageHead page="home" title={place || "今天出門前"} sub={town ? `${TODAY.format(now)}，資料過舊的項目不下結論` : "\u00a0"}>
           <Picker town={town} onChange={choose} />
-        </div>
+        </PageHead>
 
-        <section className={`hero tone-${loading ? "loading" : summary.tone}`} aria-labelledby="h-place">
-          <div className="hero-top">
-            <h1 id="h-place" className="hero-place">{place || "今天出門前"}</h1>
-            <p className="hero-date">{town ? `${TODAY.format(now)}，出門前` : " "}</p>
-          </div>
+        {/* Yr.no's "current conditions" card: white, 8/12 wide, the answer coloured by its level. */}
+        <section className={`now hero tone-${loading ? "loading" : summary.tone}`} aria-labelledby="h-now">
+          <h2 id="h-now" className="now-title"><Icon name="status" />今日重點</h2>
           <div className="hero-answer" role="status" aria-live="polite">
             <p className="hero-headline">{headline}</p>
-            <p className="hero-rest">{rest.length ? rest.join("；") : " "}</p>
+            <p className="hero-rest">{rest.length ? rest.join("；") : "\u00a0"}</p>
           </div>
           <ul className="glance" aria-label="五項重點，點選可看細節">
             {views.map((v, i) => {
@@ -249,7 +246,9 @@ export function App() {
           <p className={`hero-fresh${closed ? " has-closed" : ""}`}>{freshness}</p>
         </section>
 
-        <div className="tiles">
+        {/* Yr.no's daily list: column names, then one full-width white row per item. */}
+        <div className="rows-head" aria-hidden="true"><span>項目</span><span>判讀</span><span>資料時間</span></div>
+        <div className="tiles rows">
           {views.map((view) => <FeedBlock key={view.feed} view={view} town={town} now={now} />)}
         </div>
 
