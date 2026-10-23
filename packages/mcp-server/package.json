@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "MCP server for 台灣生活資料誌: township-level outdoor brief (warnings, heat, UV, AQI, rain), grid carbon intensity, reservoirs and data freshness from Taiwan's official open data. No API key needed.",
   "license": "MIT",
+  "author": "Lim Jia Quan",
   "type": "module",
   "bin": { "taiwan-life-data-mcp": "dist/index.js" },
   "files": ["dist", "README.md", "LICENSE"],

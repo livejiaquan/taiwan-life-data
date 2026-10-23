@@ -2,7 +2,7 @@ import type { FeedDataMap } from "@taiwan-life-data/collectors";
 import type { FeedEnvelope, FeedId, Town } from "@taiwan-life-data/contract";
 import { assessAqi, assessHeat, assessRain, assessUv, assessWarnings, type Verdict } from "./assess";
 
-/** Order of the 出門前 card (PLAN): warnings → heat / UV → air quality → rain. */
+/** Order of the 出門前 card: warnings → heat / UV → air quality → rain. */
 export type CardFeed = "warnings" | "heat" | "uv" | "aqi" | "rain";
 export const ORDER: CardFeed[] = ["warnings", "heat", "uv", "aqi", "rain"];
 export const SHORT_LABEL: Record<CardFeed, string> = { warnings: "警特報", heat: "熱傷害", uv: "紫外線", aqi: "空品", rain: "降雨" };

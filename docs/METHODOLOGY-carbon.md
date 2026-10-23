@@ -53,7 +53,7 @@
 
 **取值來源**：以上數字照抄 Electricity Maps 開源設定檔 [`config/defaults.yaml`](https://github.com/electricitymaps/electricitymaps-contrib/blob/d9a920fb7c357fefd8616adddcab3c17b0aa26ff/config/defaults.yaml)（commit `d9a920f`，2026-04-28；2026-10-16 讀取），該檔逐項註明上表的原始出處。「汽電共生＝未知火力」也跟隨 Electricity Maps 的台電解析器（`electricitymap/contrib/parsers/TAIPOWER.py` 把 `COGEN` 歸為 `unknown`）。只引用係數數值，沒有使用其程式碼。係數版本記在每筆資料的 `factorsVersion`。
 
-**為什麼主要指標用生命週期**：可以和 Electricity Maps 等國際服務直接比較（競品報告 §8.2 的「與 Electricity Maps 的差距」），而且風、光、水在生命週期下不是 0，比較誠實。直接排放一併提供，方便和政府公告的係數對照。
+**為什麼主要指標用生命週期**：可以和 Electricity Maps 等國際服務直接比較，而且風、光、水在生命週期下不是 0，比較誠實。直接排放一併提供，方便和政府公告的係數對照。
 
 ## 4. 和官方數字對照（合理性檢查，不是校正）
 

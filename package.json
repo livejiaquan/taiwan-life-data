@@ -3,6 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "description": "台灣生活資料誌：整合氣象署、環境部等官方開放資料的「今天出門要注意什麼」。",
+  "author": "Lim Jia Quan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/livejiaquan/taiwan-life-data.git"
+  },
+  "homepage": "https://livejiaquan.github.io/taiwan-life-data/",
   "license": "MIT",
   "type": "module",
   "workspaces": [
