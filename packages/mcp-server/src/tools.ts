@@ -129,7 +129,7 @@ export const gridCarbon = async (src: DataSource): Promise<string> => {
   if (fair?.greenest) out.push(`- 最低：${windowText(fair.greenest)}（平均 ${fair.greenest.lifecycle} 公克／度）${fair.dirtiest ? `；最高：${windowText(fair.dirtiest)}（${fair.dirtiest.lifecycle}）` : ""}；樣本 ${fair.samples} 筆`);
   else out.push(`- 尚不推估：${profile?.insufficient ?? (profile ? "最新樣本超過 3 天" : "讀不到 power-profile.json")}`);
   if (read.envelope) out.push("", provenance("power", read as FeedRead<FeedId>, now));
-  out.push("方法與係數出處：https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/METHODOLOGY-carbon.md");
+  out.push(`方法與係數出處：${new URL("status/#method-carbon", src.siteUrl).toString()}`);
   return out.join("\n");
 };
 
