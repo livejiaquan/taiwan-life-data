@@ -224,7 +224,7 @@ export function App() {
 
         {/* Yr.no's "current conditions" card: white, 8/12 wide, the answer coloured by its level. */}
         <section className={`now hero tone-${loading ? "loading" : summary.tone}`} aria-labelledby="h-now">
-          <h2 id="h-now" className="now-title"><Icon name="status" />今日重點</h2>
+          <h2 id="h-now" className="now-title"><Icon name="status" size={16} />今日重點</h2>
           <div className="hero-answer" role="status" aria-live="polite">
             <p className="hero-headline">{headline}</p>
             <p className="hero-rest">{rest.length ? rest.join("；") : "\u00a0"}</p>

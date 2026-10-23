@@ -154,11 +154,40 @@ export function StatusApp() {
         )}
       </section>
 
+      <section aria-labelledby="h-method">
+        <h2 id="h-method" className="section-title">方法</h2>
+        <details className="method" id="method-carbon">
+          <summary>電網碳強度怎麼算</summary>
+          <p>「現在每用一度電大約排多少碳」＝ 各能源別淨發電量（MW）乘上各自的排放係數，加總後除以總淨發電量。資料是台電「各機組發電量即時資訊」，每 10 分鐘更新；台電檔案不允許跨網域讀取，所以只能由收集程式在伺服器端讀。</p>
+          <ul>
+            <li>只算一次發電：儲能放電與儲能充電都不計入，否則會把之前發的電當成零排放而低估。</li>
+            <li>主要數字用生命週期係數（燃煤 820、燃氣 490、燃油 650、汽電共生 700、核能 12、水力 24、風力 11、太陽能 45、其他再生 230，單位公克 CO₂e／度），另附只算燃燒的直接排放。</li>
+            <li>係數取自 IPCC 2014 等出處，數值依 Electricity Maps 開源設定檔整理；汽電共生燃料比例未公開，以「未知火力」估計。</li>
+            <li>這是發電端的瞬間值；經濟部能源署公告的電力排碳係數是全年、以售電量為分母，兩者定義不同，不應直接比大小。</li>
+            <li>資料超過 90 分鐘就不顯示目前碳強度。</li>
+          </ul>
+        </details>
+        <details className="method" id="api">
+          <summary>開放 JSON API 的格式</summary>
+          <p>
+            免金鑰、允許跨網域讀取的靜態 JSON。目錄在 <a href={`${import.meta.env.BASE_URL}data/catalog.json`}>data/catalog.json</a>，每個資料來源一檔 <code>data/&#123;feed&#125;.json</code>，歷史存檔在 <code>archive/v1/</code>（保留 90 天）。
+          </p>
+          <ul>
+            <li>每個檔案都是同一個信封：<code>sourceTime</code>（官方資料時間）、<code>retrievedAt</code>（本站讀取時間）、<code>status</code>、<code>source</code>（機關、資料集、授權）、<code>issues</code>、<code>data</code>。</li>
+            <li>檔案裡的 <code>status</code> 是收集當下的判定。讀取時請用上方各來源的「判定門檻」依資料年齡自己重算；過舊或無法取得時不要拿 <code>data</code> 下結論。</li>
+            <li>收集紀錄與事故：<a href={`${import.meta.env.BASE_URL}data/status.json`}>data/status.json</a>、<a href={`${import.meta.env.BASE_URL}data/incidents.xml`}>事故 Atom feed</a>。</li>
+          </ul>
+        </details>
+        <details className="method" id="method-green">
+          <summary>綠電時段怎麼算</summary>
+          <p>用本站存檔中最近 14 天的碳強度樣本，依台北時間每小時取平均，找平均最低的連續 3 小時（可以跨午夜）。至少要有 48 筆、涵蓋 18 個小時才計算；最新樣本超過 3 天就不再稱為「最近」。這是過去的規律，不是預報。</p>
+        </details>
+      </section>
+
       <p className="rules">判定規則：沒有資料 → 無法取得；時間缺失、無法解析或在未來 → 過舊；超過門檻 → 延遲／過舊。過舊或無法取得時首頁不下結論。</p>
       <Footer sources="交通部中央氣象署、環境部、台灣電力公司、經濟部水利署">
         <a href={`${import.meta.env.BASE_URL}data/status.json`}>status.json</a>
         <a href={`${import.meta.env.BASE_URL}data/incidents.xml`}>事故 Atom feed</a>
-        <a href="https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/DECISIONS.md">技術決策與實測</a>
       </Footer>
     </main>
     </>
