@@ -14,17 +14,25 @@
 |---|---|---|
 | <img src="docs/screenshots/home-mobile.png" alt="出門前卡：臺南市安南區的警特報、熱傷害、紫外線、空品、降雨，各附資料時間" width="260"> | <img src="docs/screenshots/today-mobile.png" alt="今天的台灣：電網碳強度、能源別占比、20 座水庫蓄水率" width="260"> | <img src="docs/screenshots/status-mobile.png" alt="資料狀態頁：各資料來源的資料年齡、最近成功收集與事故紀錄" width="260"> |
 
-截圖為線上網站實際畫面（2026-10-16 02:28 台北時間，手機 390 px 寬模擬），不是設計稿。
+截圖為網站實際畫面（手機 390 px 寬）。
 
-## 在 Claude 裡用（MCP server）
+## MCP server
 
-```sh
-claude mcp add taiwan-life-data -- npx -y taiwan-life-data-mcp
-# npm 尚未發佈前，用 GitHub Release 的同一份建置：
-claude mcp add taiwan-life-data -- npx -y --package=https://github.com/livejiaquan/taiwan-life-data/releases/download/mcp-v0.1.0/taiwan-life-data-mcp-0.1.0.tgz taiwan-life-data-mcp
+任何支援 MCP 的客戶端（Claude Desktop、Cursor 等）都可以用。`mcpServers` 設定：
+
+```json
+{
+  "mcpServers": {
+    "taiwan-life-data": { "command": "npx", "args": ["-y", "taiwan-life-data-mcp"] }
+  }
+}
 ```
 
-然後直接問「臺南市安南區今天出門要注意什麼？」「現在台灣的電每度排多少碳？」「曾文水庫還有多少水？」。工具：`outdoor_brief`、`list_towns`、`grid_carbon`、`reservoirs`、`data_status`、`history`；每個回答都附資料時間與狀態，過舊就不下結論。說明見 [`packages/mcp-server`](packages/mcp-server/README.md)。
+npm 尚未發佈前，用 GitHub Release 的同一份建置：`npx -y --package=https://github.com/livejiaquan/taiwan-life-data/releases/download/mcp-v0.1.0/taiwan-life-data-mcp-0.1.0.tgz taiwan-life-data-mcp`。
+
+接上後可以直接問「臺南市安南區今天出門要注意什麼？」「現在台灣的電每度排多少碳？」「曾文水庫還有多少水？」。
+
+工具：`outdoor_brief`、`list_towns`、`grid_carbon`、`reservoirs`、`data_status`、`history`；每個回答都附資料時間與狀態，過舊就不下結論。說明見 [`packages/mcp-server`](packages/mcp-server/README.md)。
 
 ## 開放 JSON API
 
@@ -62,7 +70,7 @@ flowchart TB
   collect --> archive[(data 分支<br/>每 feed 每天一檔・90 天)]
   archive --> snap
   snap --> browser[瀏覽器]
-  snap --> client[Claude 等 MCP client]
+  snap --> client[MCP 客戶端]
   official -. 快照不夠新時直接讀 .-> browser
   official -. 快照不夠新時本機直接讀 .-> client
   web --> browser
@@ -75,7 +83,7 @@ flowchart TB
 - **沒有資料庫**：狀態與事故從線上讀回上一份再累積；歷史存檔是 repo 的 `data` 分支。
 - **自動事故紀錄**：每次收集判定「收集失敗／資料過舊／收集中斷（兩次收集相隔超過 1 小時）」，恢復時自動結案；`/status` 頁、[Atom feed](https://livejiaquan.github.io/taiwan-life-data/data/incidents.xml)、`archive/v1/incidents.json`（90 天）三處公開。
 
-技術決策與實測數據：[`docs/DECISIONS.md`](docs/DECISIONS.md)；計畫與進度：[`docs/PLAN.md`](docs/PLAN.md)、[`docs/PROGRESS.md`](docs/PROGRESS.md)。
+技術決策：[`docs/DECISIONS.md`](docs/DECISIONS.md)；API：[`docs/API.md`](docs/API.md)；使用者分析與設計筆記：[`docs/ux-research.md`](docs/ux-research.md)、[`docs/design-research.md`](docs/design-research.md)。
 
 ## 資料來源與授權
 
@@ -93,14 +101,27 @@ flowchart TB
 - **碳強度係數**：IPCC 2014 等生命週期係數，依 Electricity Maps `defaults.yaml`（MIT）取值，逐項出處見方法文件。
 - **程式碼**：[MIT](LICENSE)。
 
+## 專案結構
+
+| 路徑 | 內容 |
+|---|---|
+| `packages/contract` | 資料契約、新鮮度判定、事故、368 鄉鎮清單 |
+| `packages/collectors` | 各官方資料的解析與驗證、收集與存檔 |
+| `packages/assess` | 判讀邏輯（網站與 MCP server 共用） |
+| `packages/mcp-server` | MCP server（`taiwan-life-data-mcp`） |
+| `apps/web` | 網站（Vite＋React，預先渲染） |
+| `scripts` | 建置、部署、探測腳本 |
+| `docs` | API、方法、技術決策、設計筆記 |
+
 ## 開發
 
 ```sh
 npm install
-npm test               # 離線 fixture 測試（lint、typecheck 另見 package.json）
+npm run lint && npm run typecheck
+npm test               # 離線 fixture 測試
 npm run collect        # 抓官方資料寫入 apps/web/public/data/
 npm run archive -- archive-data   # 併入存檔（archive-data 為 data 分支的 checkout）
-npm run dev
+npm run dev              # 本機開發（需要先 collect 才有資料）
 npm run build:public   # 正式建置＋金鑰掃描
 npm run build:mcp      # 打包 MCP server（packages/mcp-server/dist）
 npm run probe          # 重新實測各端點 CORS／延遲

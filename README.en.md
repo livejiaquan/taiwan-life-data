@@ -14,15 +14,21 @@ Also: **Taiwan today** (grid carbon intensity, the lowest-carbon hours, 20 main 
 |---|---|---|
 | <img src="docs/screenshots/home-mobile.png" alt="Outdoor card for Annan District, Tainan: warnings, heat, UV, AQI, rain, each with its data time" width="260"> | <img src="docs/screenshots/today-mobile.png" alt="Taiwan today: grid carbon intensity, fuel mix, 20 reservoirs" width="260"> | <img src="docs/screenshots/status-mobile.png" alt="Status page: data age, last successful collection and incidents per feed" width="260"> |
 
-Screenshots are the real live site (2026-10-16 02:28 Taipei time, 390 px mobile emulation), not mock-ups. The interface is in Traditional Chinese.
+Screenshots are the real site at 390 px wide. The interface is in Traditional Chinese.
 
-## Use it from Claude (MCP server)
+## MCP server
 
-```sh
-claude mcp add taiwan-life-data -- npx -y taiwan-life-data-mcp
-# until the npm release is out, the same build from GitHub Releases:
-claude mcp add taiwan-life-data -- npx -y --package=https://github.com/livejiaquan/taiwan-life-data/releases/download/mcp-v0.1.0/taiwan-life-data-mcp-0.1.0.tgz taiwan-life-data-mcp
+Works with any MCP-capable client (Claude Desktop, Cursor, …). `mcpServers` config:
+
+```json
+{
+  "mcpServers": {
+    "taiwan-life-data": { "command": "npx", "args": ["-y", "taiwan-life-data-mcp"] }
+  }
+}
 ```
+
+Until the npm release is out, use the same build from GitHub Releases: `npx -y --package=https://github.com/livejiaquan/taiwan-life-data/releases/download/mcp-v0.1.0/taiwan-life-data-mcp-0.1.0.tgz taiwan-life-data-mcp`.
 
 Then ask things like "What should I watch out for in Annan District, Tainan today?", "How carbon-intensive is Taiwan's grid right now?" or "How full is Zengwen Reservoir?". Tools: `outdoor_brief`, `list_towns`, `grid_carbon`, `reservoirs`, `data_status`, `history`. Each answer carries the data time and status, and gives no verdict on stale data. Details: [`packages/mcp-server`](packages/mcp-server/README.md).
 
@@ -62,7 +68,7 @@ flowchart TB
   collect --> archive[(data branch<br/>one file per feed per day, 90 days)]
   archive --> snap
   snap --> browser[Browser]
-  snap --> client[Claude / MCP clients]
+  snap --> client[MCP clients]
   official -. read directly when the snapshot is old .-> browser
   official -. read directly when the snapshot is old .-> client
   web --> browser
@@ -93,13 +99,26 @@ Design decisions with measurements: [`docs/DECISIONS.md`](docs/DECISIONS.md) (Ch
 - **Carbon factors**: lifecycle factors (IPCC 2014 et al.) as compiled in Electricity Maps' `defaults.yaml` (MIT); per-factor sources in the methodology doc.
 - **Code**: [MIT](LICENSE).
 
+## Project layout
+
+| Path | What it holds |
+|---|---|
+| `packages/contract` | Data contract, freshness rules, incidents, the 368-township list |
+| `packages/collectors` | Parsing and validation of each official source, collection and archive |
+| `packages/assess` | Assessment logic shared by the website and the MCP server |
+| `packages/mcp-server` | The MCP server (`taiwan-life-data-mcp`) |
+| `apps/web` | The website (Vite + React, prerendered) |
+| `scripts` | Build, deploy and probe scripts |
+| `docs` | API, methodology, technical decisions, design notes |
+
 ## Development
 
 ```sh
 npm install
+npm run lint && npm run typecheck
 npm test               # offline fixture tests
 npm run collect        # fetch official data into apps/web/public/data/
-npm run dev
+npm run dev            # local dev (run collect first so there is data)
 npm run build:public   # production build + credential scan
 npm run build:mcp      # bundle the MCP server (packages/mcp-server/dist)
 ```

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Stopgap deploy while the Pages workflow cannot be pushed (docs/PROGRESS.md「需要使用者」#1):
+# Manual deploy (no Pages workflow is configured in this repo):
 # collect → archive (commit to the `data` branch) → public build (credential-checked) → replace gh-pages.
 set -eu
 cd "$(dirname "$0")/.."
