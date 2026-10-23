@@ -80,7 +80,7 @@ const main = async () => {
     JSON.stringify({
       schemaVersion: 1,
       generatedAt: doc.generatedAt,
-      docs: "https://github.com/livejiaquan/taiwan-life-data/blob/main/docs/API.md",
+      docs: new URL("status/#api", SITE).toString(),
       license: "資料：各機關依政府資料開放授權條款－第1版；程式：MIT",
       feeds: FEED_IDS.map((feed) => ({
         id: feed,

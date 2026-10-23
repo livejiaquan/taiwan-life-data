@@ -5,7 +5,7 @@ import { assessPower, CATEGORY_LABEL, pickBest, REGION_LABEL, usableProfile, res
 import { loadSnapshot, readOfficial } from "../load";
 import { agoText, Badge, Footer, Icon, PageHead, TopBar } from "../Shell";
 
-const REPO = "https://github.com/livejiaquan/taiwan-life-data/blob/main";
+const METHOD = `${import.meta.env.BASE_URL}status/#method-carbon`;
 
 type Env<K extends keyof FeedDataMap> = FeedEnvelope<FeedDataMap[K]>;
 /** undefined = loading, null = failed. */
@@ -94,7 +94,7 @@ function PowerBlock({ power, profile, now }: { power: Slot<Env<"power">>; profil
       {power !== undefined && (
         <Meta feed="power" envelope={best?.envelope ?? power} now={now}>
           <p>
-            生命週期係數（IPCC 2014 等，依 Electricity Maps 整理），儲能不計入。<a href={`${REPO}/docs/METHODOLOGY-carbon.md`}>計算方法與係數出處</a>
+            生命週期係數（IPCC 2014 等，依 Electricity Maps 整理），儲能不計入。<a href={METHOD}>計算方法與係數出處</a>
           </p>
         </Meta>
       )}
@@ -248,7 +248,7 @@ export function TodayApp() {
           </div>
         )}
         <Footer sources="台灣電力公司、經濟部水利署">
-          <a href={`${REPO}/docs/METHODOLOGY-carbon.md`}>碳強度方法</a>
+          <a href={METHOD}>碳強度方法</a>
         </Footer>
       </main>
     </>
