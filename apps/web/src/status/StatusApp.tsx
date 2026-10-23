@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Footer, STATUS_TEXT, TopBar } from "../Shell";
+import { Footer, PageHead, STATUS_TEXT, TopBar } from "../Shell";
 import { BROWSER_FETCHABLE, parseFeedEnvelope } from "@taiwan-life-data/collectors";
 import { currentStatus, dataAgeMinutes, FEEDS, formatTaipei, INCIDENT_KIND_TEXT, incidentKey, incidentLabel, isStatusDoc, openCollectGap, percentile, sortIncidents, type FeedEnvelope, type FeedId, type FeedStatus, type StatusDoc } from "@taiwan-life-data/contract";
 
@@ -34,15 +34,6 @@ const feedStats = (doc: StatusDoc, feed: FeedId) => {
   };
 };
 
-function StatusMasthead() {
-  return (
-    <div className="page-head">
-      <h1>資料狀態</h1>
-      <p className="lede">各資料來源多新、最近何時收集成功、出過哪些狀況；每次收集自動產生。</p>
-    </div>
-  );
-}
-
 export function StatusApp() {
   const [loaded, setLoaded] = useState<Loaded>({ doc: null, envelopes: {}, error: false });
   const now = Date.now();
@@ -72,11 +63,11 @@ export function StatusApp() {
 
   return (
     <>
-    <TopBar page="status" />
+    <TopBar />
     <main className="page" id="main">
-      <StatusMasthead />
+      <PageHead page="status" title="資料狀態" sub="各資料來源多新、最近何時收集成功、出過哪些狀況；每次收集自動產生。" />
       {/* The page's answer: how many sources are live right now. */}
-      <section className="answer-block" aria-label="目前狀態">
+      <section className="now answer-block" aria-label="目前狀態">
         <p className="answer" aria-live="polite">
           <span className="answer-num">{allLoaded ? countOf("live") : "—"}</span>
           <span className="answer-unit">／{FEED_IDS.length} 項資料即時</span>
