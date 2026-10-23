@@ -130,7 +130,7 @@ export function Footer({ sources, children }: { sources: string; children?: Reac
         <a href={`${BASE}status/`}>資料狀態與方法</a>
       </p>
       <p className="footer-mcp">
-        在 Claude 等 MCP client 裡用：<code>npx -y taiwan-life-data-mcp</code>
+        在支援 MCP 的客戶端（Claude Desktop、Cursor 等）使用：<code>npx -y taiwan-life-data-mcp</code>
       </p>
       <p className="footer-copy">© 2026 台灣生活資料誌</p>
     </footer>

@@ -28,7 +28,7 @@ export interface PowerVerdict {
   details: string[];
 }
 
-/** A profile is only a fair comparison when its newest sample is recent (Codex review). */
+/** A profile is only a fair comparison when its newest sample is recent. */
 export const PROFILE_MAX_AGE_DAYS = 3;
 export const usableProfile = (profile: PowerProfile | null, now: number): PowerProfile | null =>
   profile && !profile.insufficient && profile.to && now - Date.parse(profile.to) <= PROFILE_MAX_AGE_DAYS * 86_400_000 ? profile : null;

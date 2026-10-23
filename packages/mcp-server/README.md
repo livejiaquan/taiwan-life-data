@@ -1,22 +1,12 @@
 # taiwan-life-data-mcp
 
-MCP server for **台灣生活資料誌 (taiwan-life-data)** — Taiwan's official open data, ready for Claude and other MCP clients. No API key, no account.
+MCP server for **台灣生活資料誌 (taiwan-life-data)** — Taiwan's official open data, ready for any MCP client. No API key, no account.
 
 台灣官方開放資料（氣象署、環境部、台電、水利署）的 MCP server：鄉鎮級「出門前」、電網碳強度、水庫、資料狀態與歷史存檔。免金鑰。
 
 ## Install / 安裝
 
-Claude Code:
-
-```sh
-# from npm
-claude mcp add taiwan-life-data -- npx -y taiwan-life-data-mcp
-
-# or from the GitHub release tarball (same build)
-claude mcp add taiwan-life-data -- npx -y --package=https://github.com/livejiaquan/taiwan-life-data/releases/download/mcp-v0.1.0/taiwan-life-data-mcp-0.1.0.tgz taiwan-life-data-mcp
-```
-
-Claude Desktop / other clients (`mcpServers` config):
+Any MCP client (Claude Desktop, Cursor, …), `mcpServers` config:
 
 ```json
 {
@@ -25,6 +15,8 @@ Claude Desktop / other clients (`mcpServers` config):
   }
 }
 ```
+
+From the GitHub release tarball (same build as npm): `npx -y --package=https://github.com/livejiaquan/taiwan-life-data/releases/download/mcp-v0.1.0/taiwan-life-data-mcp-0.1.0.tgz taiwan-life-data-mcp`.
 
 Requires Node.js ≥ 20. The package is a single bundled file with no runtime dependencies.
 

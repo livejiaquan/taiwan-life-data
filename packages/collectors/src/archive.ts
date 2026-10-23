@@ -117,7 +117,7 @@ export const archiveDateOf = (envelope: FeedEnvelope<unknown>): string | null =>
 /**
  * Same official update = same sourceTime AND identical data. sourceTime alone is not enough:
  * multi-station feeds take it from the newest station, so a late station can change the data
- * while sourceTime stays put (Codex review, docs/DECISIONS.md D21).
+ * while sourceTime stays put (docs/DECISIONS.md).
  */
 const sameUpdate = (a: ArchiveSample, b: ArchiveSample) => a.sourceTime === b.sourceTime && JSON.stringify(a.data) === JSON.stringify(b.data);
 

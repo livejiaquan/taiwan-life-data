@@ -109,7 +109,7 @@ describe("outdoor_brief", () => {
   });
 });
 
-describe("Codex review regressions", () => {
+describe("review regressions", () => {
   it("grades again at answer time when a slow read pushes another feed past its threshold", async () => {
     let clock = NOW;
     const snaps = snapshots();
