@@ -3,7 +3,7 @@ import { isPowerProfile, type FeedDataMap, type PowerProfile } from "@taiwan-lif
 import { dataAgeMinutes, FEEDS, formatTaipei, type FeedEnvelope } from "@taiwan-life-data/contract";
 import { assessPower, CATEGORY_LABEL, pickBest, REGION_LABEL, usableProfile, reservoirRows, reservoirTone, windowText } from "@taiwan-life-data/assess";
 import { loadSnapshot, readOfficial } from "../load";
-import { agoText, Badge, Footer, Icon, TopBar } from "../Shell";
+import { agoText, Badge, Footer, Icon, PageHead, TopBar } from "../Shell";
 
 const REPO = "https://github.com/livejiaquan/taiwan-life-data/blob/main";
 
@@ -52,7 +52,7 @@ function PowerBlock({ power, profile, now }: { power: Slot<Env<"power">>; profil
   const total = usable ? usable.categories.reduce((s, c) => s + Math.max(0, c.mw), 0) : 0;
   return (
     // While loading, reserve the loaded height (measured at 360–412 px) so nothing below shifts.
-    <section className={`tile tone-${verdict ? verdict.tone : power === undefined ? "loading" : "closed"}${power === undefined ? " reserve-power" : ""}`} aria-labelledby="h-power" aria-busy={power === undefined}>
+    <section className={`tile power-now tone-${verdict ? verdict.tone : power === undefined ? "loading" : "closed"}${power === undefined ? " reserve-power" : ""}`} aria-labelledby="h-power" aria-busy={power === undefined}>
       <header className="tile-head">
         <span className="tile-icon"><Icon name="power" /></span>
         <h2 id="h-power">電網碳強度</h2>
@@ -73,7 +73,8 @@ function PowerBlock({ power, profile, now }: { power: Slot<Env<"power">>; profil
       {verdict && usable && (
         <>
           {/* The number is the answer; the sentence form stays for screen readers. */}
-          <p className="answer" aria-label={verdict.headline}>
+          <p className="answer">
+            <span className="visually-hidden">{verdict.headline}</span>
             <span className="answer-label" aria-hidden="true">目前每度電約</span>
             <span className="answer-num" aria-hidden="true">{usable.intensity.lifecycle}</span>
             <span className="answer-unit" aria-hidden="true">公克 CO₂e</span>
@@ -225,12 +226,9 @@ export function TodayApp() {
 
   return (
     <>
-      <TopBar page="today" />
+      <TopBar />
       <main className="page" id="main">
-        <div className="page-head">
-          <h1>今天的台灣</h1>
-          <p className="lede">電網現在多乾淨、主要水庫還有多少水、一天中何時用電最綠。資料過舊就不顯示。</p>
-        </div>
+        <PageHead page="today" title="今天的台灣" sub="電網現在多乾淨、主要水庫還有多少水、一天中何時用電最綠。資料過舊就不顯示。" />
         {/*
           The three blocks' loaded heights depend on the data (stale power is short, a WRA
           re-read turns a short "stale" reservoir block into 20 rows), so nothing is drawn

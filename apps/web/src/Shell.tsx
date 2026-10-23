@@ -82,7 +82,8 @@ const NAV: Array<[Page, string, string]> = [
   ["status", "資料狀態", `${BASE}status/`],
 ];
 
-export function TopBar({ page }: { page: Page }) {
+/** Yr.no's header: brand on the left, the one action on the right. */
+export function TopBar() {
   return (
     <header className="topbar">
       <a className="skip" href="#main">跳到主要內容</a>
@@ -91,14 +92,27 @@ export function TopBar({ page }: { page: Page }) {
           <span className="brand-mark" aria-hidden="true">台</span>
           台灣生活資料誌
         </a>
-        <nav className="nav" aria-label="主要頁面">
-          {NAV.map(([id, label, href]) => (
-            <a key={id} href={href} aria-current={id === page ? "page" : undefined}>{label}</a>
-          ))}
-        </nav>
         <ThemeToggle />
       </div>
     </header>
+  );
+}
+
+/** Yr.no's place header: the page's title and a small subtitle, then the page tabs. */
+export function PageHead({ page, title, sub, children }: { page: Page; title: string; sub: string; children?: ReactNode }) {
+  return (
+    <div className="page-head">
+      <div className="page-title">
+        <h1>{title}</h1>
+        <p className="page-sub">{sub}</p>
+      </div>
+      <nav className="tabs" aria-label="主要頁面">
+        {NAV.map(([id, label, href]) => (
+          <a key={id} href={href} aria-current={id === page ? "page" : undefined}>{label}</a>
+        ))}
+      </nav>
+      {children && <div className="page-actions">{children}</div>}
+    </div>
   );
 }
 
